@@ -337,6 +337,16 @@
             margin-bottom: 10px;
         }
 
+        .question-badge {
+            display: inline-block;
+            background: #fed7d7;
+            color: #742a2a;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.85em;
+            margin-left: 10px;
+        }
+
         .question-text {
             font-size: 1.3em;
             font-weight: 600;
@@ -407,6 +417,36 @@
             background: #fed7d7;
             color: #742a2a;
             border: 2px solid #f56565;
+        }
+
+        .nav-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+            justify-content: space-between;
+        }
+
+        .nav-btn {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 50px;
+            font-size: 1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: none;
+        }
+
+        .nav-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+        }
+
+        .nav-btn:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
         }
 
         .next-btn {
@@ -490,6 +530,7 @@
             gap: 15px;
             justify-content: center;
             margin-top: 30px;
+            flex-wrap: wrap;
         }
 
         .action-btn {
@@ -546,6 +587,14 @@
             .action-buttons {
                 flex-direction: column;
             }
+
+            .nav-buttons {
+                flex-direction: column;
+            }
+
+            .nav-btn {
+                width: 100%;
+            }
         }
     </style>
 </head>
@@ -595,7 +644,10 @@
                 <div id="question-text" class="question-text"></div>
                 <div id="answers-container"></div>
                 <div id="feedback" class="feedback"></div>
-                <button id="next-btn" class="next-btn">Next Question</button>
+                <div class="nav-buttons">
+                    <button id="prev-btn" class="nav-btn">← Previous</button>
+                    <button id="next-btn" class="next-btn">Next Question</button>
+                </div>
             </div>
         </div>
 
@@ -626,6 +678,7 @@
             
             <div class="action-buttons">
                 <button id="restart-quiz" class="action-btn primary-btn">Retake Quiz</button>
+                <button id="review-wrong" class="action-btn secondary-btn" style="display:none;">Review Wrong Answers</button>
                 <button id="new-quiz" class="action-btn secondary-btn">Load New Quiz</button>
                 <button id="reset-stats" class="action-btn secondary-btn">Reset Stats</button>
             </div>
@@ -690,14 +743,20 @@
         let userAnswers = [];
         let generatedJSON = null;
         let geminiApiKey = 'AIzaSyAPICmV7T5v5mcIWmLkaZS29npr-1XZjDs';
-        let currentMode = 'normal'; // 'normal', 'quiz', 'qjson', 'ai'
+        let currentMode = 'normal';
         let isAIGeneratedQuiz = false;
+        let wrongAnswersMode = false;
+        let wrongQuestionIndices = [];
+        let wrongQuestionReviewMap = {};
+        let allQuestionsPool = [];
+        let unansweredQuestions = [];
+        let wrongQuestionsPool = [];
 
         // Stats tracking
         let stats = {
-            totalCorrect: parseInt(localStorage.getItem('totalCorrect') || '0'),
-            totalWrong: parseInt(localStorage.getItem('totalWrong') || '0'),
-            totalAttempts: parseInt(localStorage.getItem('totalAttempts') || '0')
+            totalCorrect: 0,
+            totalWrong: 0,
+            totalAttempts: 0
         };
 
         const fileInput = document.getElementById('file-input');
@@ -747,12 +806,22 @@
                     }
                     
                     isAIGeneratedQuiz = false;
+                    wrongAnswersMode = false;
                     startQuiz();
                 } catch (error) {
                     alert('Invalid JSON file. Please check the format.');
                 }
             };
             reader.readAsText(file);
+        }
+
+        function shuffleArray(arr) {
+            const newArr = [...arr];
+            for (let i = newArr.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [newArr[i], newArr[j]] = [newArr[j], newArr[i]];
+            }
+            return newArr;
         }
 
         function startQuiz() {
@@ -763,12 +832,24 @@
             currentQuestion = 0;
             score = 0;
             userAnswers = [];
+            answered = false;
             
-            // Create a fresh copy of original data and shuffle options
-            quizData = JSON.parse(JSON.stringify(originalQuizData));
-            totalQuestions = quizData.questions.length;
+            if (wrongAnswersMode) {
+                const shuffledWrongIndices = shuffleArray(wrongQuestionIndices);
+                quizData = {
+                    questions: shuffledWrongIndices.map(idx => originalQuizData.questions[idx])
+                };
+                totalQuestions = quizData.questions.length;
+            } else {
+                quizData = JSON.parse(JSON.stringify(originalQuizData));
+                const shuffledIndices = shuffleArray([...Array(quizData.questions.length).keys()]);
+                quizData.questions = shuffledIndices.map(idx => originalQuizData.questions[idx]);
+                totalQuestions = quizData.questions.length;
+                
+                wrongQuestionIndices = [];
+                wrongQuestionReviewMap = {};
+            }
             
-            // Only shuffle if not AI generated (to preserve explanations)
             if (!isAIGeneratedQuiz) {
                 shuffleQuizOptions();
             }
@@ -780,20 +861,14 @@
             quizData.questions.forEach(question => {
                 const correctAnswer = question.options[question.correct];
                 
-                // Create array of indices and shuffle them
                 const indices = [...Array(question.options.length).keys()];
                 for (let i = indices.length - 1; i > 0; i--) {
                     const j = Math.floor(Math.random() * (i + 1));
                     [indices[i], indices[j]] = [indices[j], indices[i]];
                 }
                 
-                // Reorder options based on shuffled indices
                 const shuffledOptions = indices.map(i => question.options[i]);
-                
-                // Update the question with shuffled options
                 question.options = shuffledOptions;
-                
-                // Find new position of correct answer
                 question.correct = shuffledOptions.indexOf(correctAnswer);
             });
         }
@@ -802,8 +877,16 @@
             answered = false;
             const question = quizData.questions[currentQuestion];
             
-            document.getElementById('question-number').textContent = 
-                `Question ${currentQuestion + 1} of ${totalQuestions}`;
+            let questionLabel = `Question ${currentQuestion + 1} of ${totalQuestions}`;
+            let badge = '';
+            
+            if (wrongAnswersMode) {
+                const reviewCount = wrongQuestionReviewMap[currentQuestion] || 1;
+                questionLabel = `Review: Wrong Answer`;
+                badge = `<span class="question-badge">Appeared ${reviewCount} time(s)</span>`;
+            }
+            
+            document.getElementById('question-number').innerHTML = questionLabel + badge;
             document.getElementById('question-text').textContent = question.question;
             
             const progress = ((currentQuestion) / totalQuestions) * 100;
@@ -821,7 +904,26 @@
             });
             
             document.getElementById('feedback').style.display = 'none';
-            document.getElementById('next-btn').style.display = 'none';
+            
+            updateNavButtons();
+        }
+
+        function updateNavButtons() {
+            const prevBtn = document.getElementById('prev-btn');
+            const nextBtn = document.getElementById('next-btn');
+            
+            prevBtn.style.display = currentQuestion > 0 ? 'block' : 'none';
+            prevBtn.disabled = answered;
+            
+            if (currentQuestion < totalQuestions - 1) {
+                nextBtn.textContent = 'Next Question';
+                nextBtn.style.display = 'block';
+                nextBtn.disabled = !answered;
+            } else {
+                nextBtn.textContent = 'Finish';
+                nextBtn.style.display = 'block';
+                nextBtn.disabled = !answered;
+            }
         }
 
         function selectAnswer(selectedIndex) {
@@ -846,16 +948,21 @@
                 buttons[correctIndex].classList.add('correct');
                 showFeedback(false, question.explanation);
                 stats.totalWrong++;
+                
+                if (!wrongAnswersMode) {
+                    const originalIndex = originalQuizData.questions.indexOf(question);
+                    if (!wrongQuestionIndices.includes(originalIndex)) {
+                        wrongQuestionIndices.push(originalIndex);
+                        wrongQuestionReviewMap[wrongQuestionIndices.length - 1] = 1;
+                    } else {
+                        const reviewIdx = wrongQuestionIndices.indexOf(originalIndex);
+                        wrongQuestionReviewMap[reviewIdx] = (wrongQuestionReviewMap[reviewIdx] || 1) + 1;
+                    }
+                }
             }
             
             stats.totalAttempts++;
-            saveStats();
-            
-            if (currentQuestion < totalQuestions - 1) {
-                document.getElementById('next-btn').style.display = 'inline-block';
-            } else {
-                setTimeout(showResults, 2000);
-            }
+            updateNavButtons();
         }
 
         function showFeedback(correct, explanation) {
@@ -878,9 +985,16 @@
             }
         }
 
+        function previousQuestion() {
+            if (currentQuestion > 0) {
+                currentQuestion--;
+                showQuestion();
+            }
+        }
+
         function nextQuestion() {
-            currentQuestion++;
-            if (currentQuestion < totalQuestions) {
+            if (currentQuestion < totalQuestions - 1) {
+                currentQuestion++;
                 showQuestion();
             } else {
                 showResults();
@@ -900,6 +1014,13 @@
             document.getElementById('wrong-count').textContent = totalQuestions - score;
             document.getElementById('total-questions').textContent = totalQuestions;
             document.getElementById('accuracy').textContent = overallAccuracy + '%';
+            
+            const reviewWrongBtn = document.getElementById('review-wrong');
+            if (wrongQuestionIndices.length > 0 && !wrongAnswersMode) {
+                reviewWrongBtn.style.display = 'inline-block';
+            } else {
+                reviewWrongBtn.style.display = 'none';
+            }
         }
 
         function saveStats() {
@@ -917,14 +1038,20 @@
         }
 
         // Event listeners
+        document.getElementById('prev-btn').addEventListener('click', previousQuestion);
         document.getElementById('next-btn').addEventListener('click', nextQuestion);
         document.getElementById('restart-quiz').addEventListener('click', startQuiz);
+        document.getElementById('review-wrong').addEventListener('click', () => {
+            wrongAnswersMode = true;
+            startQuiz();
+        });
         document.getElementById('new-quiz').addEventListener('click', () => {
             uploadSection.style.display = 'block';
             quizSection.style.display = 'none';
             resultsSection.style.display = 'none';
             fileInput.value = '';
             isAIGeneratedQuiz = false;
+            wrongAnswersMode = false;
             currentMode = 'normal';
         });
         document.getElementById('reset-stats').addEventListener('click', resetStats);
@@ -947,20 +1074,16 @@
                 return;
             }
 
-            // Add user message
             addMessage(message, 'user');
             input.value = '';
             
-            // Show typing indicator
             document.getElementById('typing-indicator').style.display = 'block';
             document.getElementById('send-btn').disabled = true;
             
             try {
-                // Check for commands
                 if (message.startsWith('/')) {
                     await handleCommand(message);
                 } else {
-                    // Continue with current mode
                     if (currentMode === 'quiz') {
                         await createInstantQuiz(message);
                     } else if (currentMode === 'qjson') {
@@ -968,7 +1091,6 @@
                     } else if (currentMode === 'ai') {
                         await handleAIChat(message);
                     } else {
-                        // Default behavior - show help
                         await showHelp();
                     }
                 }
@@ -977,7 +1099,6 @@
                 document.getElementById('typing-indicator').style.display = 'none';
                 document.getElementById('send-btn').disabled = false;
                 addMessage(`❌ Sorry, I encountered an error. Please try again later!`, 'ai');
-
             }
         }
 
@@ -1002,7 +1123,7 @@
                 document.getElementById('send-btn').disabled = false;
                 addMessage(`📥 <strong>JSON Quiz Mode Activated!</strong><br><br>
                     I'll create a quiz and provide it as a downloadable JSON file.<br><br>
-                    Paste your questions or study material below! 🎓`, 'ai');
+                    Paste your questions or study material below! 📋`, 'ai');
                     
             } else if (command === '/ai') {
                 currentMode = 'ai';
@@ -1013,7 +1134,6 @@
                     <strong>What can I help you with?</strong> 💬`, 'ai');
                     
             } else {
-                // Unknown command
                 document.getElementById('typing-indicator').style.display = 'none';
                 document.getElementById('send-btn').disabled = false;
                 addMessage(`❓ Unknown command. Available commands:<br><br>
@@ -1078,8 +1198,6 @@ ${userInput}`;
             }
 
             const generatedText = data.candidates[0].content.parts[0].text;
-            
-            // Extract JSON from response
             const jsonMatch = generatedText.match(/\{[\s\S]*\}/);
             if (!jsonMatch) {
                 throw new Error('No valid JSON found in response');
@@ -1092,18 +1210,16 @@ ${userInput}`;
                     throw new Error('Invalid JSON format - missing questions array');
                 }
 
-                // Hide typing indicator
                 document.getElementById('typing-indicator').style.display = 'none';
                 document.getElementById('send-btn').disabled = false;
 
-                // Add success message
                 addMessage(`🎉 Perfect! I created a quiz with ${quizJSON.questions.length} questions!<br><br>
                     <strong>Starting your quiz now...</strong> 🚀`, 'ai');
 
-                // Start the quiz immediately
                 setTimeout(() => {
                     originalQuizData = quizJSON;
                     isAIGeneratedQuiz = true;
+                    wrongAnswersMode = false;
                     closeAIHelper();
                     startQuiz();
                 }, 1500);
@@ -1114,7 +1230,6 @@ ${userInput}`;
         }
 
         async function createJSONQuiz(userInput) {
-            // Use the existing processQuestionsWithAI function
             await processQuestionsWithAI(userInput);
         }
 
@@ -1158,11 +1273,9 @@ Be educational, supportive, and engaging. Use emojis appropriately to make the c
 
             const aiResponse = data.candidates[0].content.parts[0].text;
 
-            // Hide typing indicator
             document.getElementById('typing-indicator').style.display = 'none';
             document.getElementById('send-btn').disabled = false;
 
-            // Add AI response
             addMessage(aiResponse, 'ai');
         }
 
@@ -1171,7 +1284,7 @@ Be educational, supportive, and engaging. Use emojis appropriately to make the c
             document.getElementById('send-btn').disabled = false;
             addMessage(`🤖 <strong>Quiz Master AI Commands:</strong><br><br>
                 • <strong>/q</strong> - Create instant quiz (no download needed)<br>
-                • <strong>/qjson</strong> - Create quiz and download JSON file<br>
+                • <strong>/qjson</strong> - Create quiz with JSON download<br>
                 • <strong>/ai</strong> - Chat mode for questions and help<br><br>
                 <strong>Type a command to get started!</strong> 😊`, 'ai');
         }
@@ -1231,8 +1344,6 @@ ${userInput}`;
             }
 
             const generatedText = data.candidates[0].content.parts[0].text;
-            
-            // Extract JSON from response (remove any markdown formatting)
             const jsonMatch = generatedText.match(/\{[\s\S]*\}/);
             if (!jsonMatch) {
                 throw new Error('No valid JSON found in response');
@@ -1245,14 +1356,11 @@ ${userInput}`;
                     throw new Error('Invalid JSON format - missing questions array');
                 }
 
-                // Hide typing indicator
                 document.getElementById('typing-indicator').style.display = 'none';
                 document.getElementById('send-btn').disabled = false;
 
-                // Add success message
                 addMessage(`🎉 Perfect! Quiz Master AI successfully processed ${generatedJSON.questions.length} questions! Your quiz file is ready for download.`, 'ai');
                 
-                // Show download button
                 document.getElementById('download-btn').style.display = 'block';
 
             } catch (parseError) {
@@ -1290,14 +1398,12 @@ ${userInput}`;
             addMessage('📥 File downloaded successfully! You can now close this window and upload the JSON file to start your quiz.', 'ai');
         }
 
-        // Close popup when clicking outside
         document.getElementById('ai-popup').addEventListener('click', function(e) {
             if (e.target === this) {
                 closeAIHelper();
             }
         });
 
-        // Allow Enter key to send message
         document.getElementById('chat-input').addEventListener('keypress', function(e) {
             if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
