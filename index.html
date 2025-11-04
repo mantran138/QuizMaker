@@ -1,0 +1,2179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quiz Master - Study & Review</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            padding: 40px;
+            max-width: 800px;
+            width: 100%;
+            min-height: 500px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .ai-helper-btn {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            width: 60px;
+            height: 60px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            border: none;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 1.5em;
+            color: white;
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
+            transition: all 0.3s ease;
+            z-index: 1000;
+        }
+
+        .ai-helper-btn:hover {
+            transform: translateY(-2px) scale(1.1);
+            box-shadow: 0 12px 30px rgba(102, 126, 234, 0.6);
+        }
+
+        .popup-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(5px);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+        }
+
+        .popup-content {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            max-width: 600px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.3);
+            position: relative;
+        }
+
+        .popup-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #e2e8f0;
+        }
+
+        .popup-title {
+            font-size: 1.5em;
+            font-weight: 700;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            font-size: 1.5em;
+            cursor: pointer;
+            color: #718096;
+            transition: color 0.3s ease;
+        }
+
+        .close-btn:hover {
+            color: #667eea;
+        }
+
+        .chat-container {
+            height: 400px;
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            overflow-y: auto;
+            padding: 15px;
+            margin-bottom: 15px;
+            background: #f8fafc;
+        }
+
+        .message {
+            margin-bottom: 15px;
+            padding: 12px 15px;
+            border-radius: 12px;
+            max-width: 85%;
+        }
+
+        .ai-message {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            margin-right: auto;
+        }
+
+        .user-message {
+            background: #e2e8f0;
+            color: #2d3748;
+            margin-left: auto;
+        }
+
+        .input-container {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .chat-input {
+            flex: 1;
+            padding: 12px 15px;
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            font-size: 1em;
+            transition: border-color 0.3s ease;
+            resize: vertical;
+        }
+
+        .chat-input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .send-btn {
+            padding: 12px 20px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .send-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+        }
+
+        .send-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .download-btn {
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(135deg, #48bb78, #38a169);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 1.1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: none;
+        }
+
+        .download-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(72, 187, 120, 0.3);
+        }
+
+        .typing-indicator {
+            display: none;
+            padding: 10px 15px;
+            background: #e2e8f0;
+            border-radius: 12px;
+            margin-bottom: 15px;
+            color: #718096;
+            font-style: italic;
+        }
+
+        .container::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #667eea, #764ba2, #667eea);
+            background-size: 200% 100%;
+            animation: shimmer 2s ease-in-out infinite;
+        }
+
+        @keyframes shimmer {
+            0%, 100% { background-position: 200% 0; }
+            50% { background-position: -200% 0; }
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .header h1 {
+            color: #2d3748;
+            font-size: 2.5em;
+            font-weight: 700;
+            margin-bottom: 10px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .header p {
+            color: #718096;
+            font-size: 1.1em;
+        }
+
+        .upload-section {
+            text-align: center;
+            padding: 40px;
+            border: 3px dashed #cbd5e0;
+            border-radius: 15px;
+            margin-bottom: 30px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .upload-section:hover {
+            border-color: #667eea;
+            background: rgba(102, 126, 234, 0.05);
+            transform: translateY(-2px);
+        }
+
+        .upload-section.dragover {
+            border-color: #667eea;
+            background: rgba(102, 126, 234, 0.1);
+        }
+
+        .upload-icon {
+            font-size: 3em;
+            color: #667eea;
+            margin-bottom: 15px;
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        .upload-btn {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 50px;
+            font-size: 1.1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+        }
+
+        .upload-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .quiz-section {
+            display: none;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #e2e8f0;
+            border-radius: 4px;
+            margin-bottom: 30px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            border-radius: 4px;
+            transition: width 0.5s ease;
+        }
+
+        .question-card {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+            margin-bottom: 30px;
+            border-left: 5px solid #667eea;
+        }
+
+        .question-number {
+            color: #667eea;
+            font-weight: 600;
+            font-size: 0.9em;
+            margin-bottom: 10px;
+        }
+
+        .question-badge {
+            display: inline-block;
+            background: #fed7d7;
+            color: #742a2a;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.85em;
+            margin-left: 10px;
+        }
+
+        .question-text {
+            font-size: 1.3em;
+            font-weight: 600;
+            color: #2d3748;
+            margin-bottom: 25px;
+            line-height: 1.4;
+        }
+
+        .answer-btn {
+            display: block;
+            width: 100%;
+            padding: 15px 20px;
+            margin-bottom: 12px;
+            background: #f8fafc;
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            text-align: left;
+            cursor: pointer;
+            font-size: 1.1em;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .answer-btn:hover {
+            border-color: #667eea;
+            background: rgba(102, 126, 234, 0.05);
+            transform: translateX(5px);
+        }
+
+        .answer-btn.selected {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+
+        .answer-btn.correct {
+            background: #48bb78;
+            color: white;
+            border-color: #48bb78;
+        }
+
+        .answer-btn.incorrect {
+            background: #f56565;
+            color: white;
+            border-color: #f56565;
+        }
+
+        .answer-btn.disabled {
+            cursor: not-allowed;
+            opacity: 0.7;
+        }
+
+        .feedback {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 10px;
+            font-weight: 600;
+            display: none;
+        }
+
+        .feedback.correct {
+            background: #c6f6d5;
+            color: #22543d;
+            border: 2px solid #48bb78;
+        }
+
+        .feedback.incorrect {
+            background: #fed7d7;
+            color: #742a2a;
+            border: 2px solid #f56565;
+        }
+
+        .nav-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+            justify-content: space-between;
+        }
+
+        .nav-btn {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 50px;
+            font-size: 1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: none;
+        }
+
+        .nav-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+        }
+
+        .nav-btn:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+
+        .next-btn {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 50px;
+            font-size: 1em;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 20px;
+            transition: all 0.3s ease;
+            display: none;
+        }
+
+        .next-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+        }
+
+        .results-section {
+            display: none;
+            text-align: center;
+            padding: 40px;
+        }
+
+        .results-title {
+            font-size: 2.5em;
+            color: #2d3748;
+            margin-bottom: 30px;
+        }
+
+        .score-circle {
+            width: 150px;
+            height: 150px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 30px;
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.3);
+        }
+
+        .score-text {
+            color: white;
+            font-size: 2em;
+            font-weight: 700;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 20px;
+            margin: 30px 0;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            border-top: 4px solid #667eea;
+        }
+
+        .stat-number {
+            font-size: 2em;
+            font-weight: 700;
+            color: #667eea;
+        }
+
+        .stat-label {
+            color: #718096;
+            font-weight: 600;
+            margin-top: 5px;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin-top: 30px;
+            flex-wrap: wrap;
+        }
+
+        .action-btn {
+            padding: 12px 25px;
+            border-radius: 50px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: none;
+            font-size: 1em;
+        }
+
+        .primary-btn {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+        }
+
+        .secondary-btn {
+            background: white;
+            color: #667eea;
+            border: 2px solid #667eea;
+        }
+
+        .action-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+        }
+
+        .battle-mode-btn {
+            background: linear-gradient(135deg, #f093fb, #f5576c);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 50px;
+            font-size: 1.1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(245, 87, 108, 0.3);
+            margin-top: 20px;
+        }
+
+        .battle-mode-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(245, 87, 108, 0.4);
+        }
+
+        .battle-hud {
+            display: none;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin-bottom: 20px;
+            padding: 15px;
+            background: linear-gradient(135deg, rgba(240, 147, 251, 0.1), rgba(245, 87, 108, 0.1));
+            border-radius: 15px;
+        }
+
+        .hud-stat {
+            text-align: center;
+            padding: 10px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+        }
+
+        .hud-label {
+            font-size: 0.85em;
+            color: #718096;
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+
+        .hud-value {
+            font-size: 1.5em;
+            font-weight: 700;
+            color: #667eea;
+        }
+
+        .grade-display {
+            font-size: 2em;
+            font-weight: 700;
+            background: linear-gradient(135deg, #f093fb, #f5576c);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .killstreak-notification {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0);
+            background: linear-gradient(135deg, #f093fb, #f5576c);
+            color: white;
+            padding: 30px 50px;
+            border-radius: 20px;
+            font-size: 2em;
+            font-weight: 700;
+            z-index: 3000;
+            box-shadow: 0 20px 60px rgba(245, 87, 108, 0.6);
+            animation: killstreakPop 1s ease-in-out;
+            pointer-events: none;
+        }
+
+        @keyframes killstreakPop {
+            0% { transform: translate(-50%, -50%) scale(0); }
+            50% { transform: translate(-50%, -50%) scale(1.2); }
+            100% { transform: translate(-50%, -50%) scale(0); }
+        }
+
+        .loot-drop {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: linear-gradient(135deg, #ffd89b, #19547b);
+            color: white;
+            padding: 15px 30px;
+            border-radius: 15px;
+            font-weight: 700;
+            font-size: 1.2em;
+            z-index: 2500;
+            box-shadow: 0 10px 30px rgba(255, 216, 155, 0.5);
+            animation: lootFloat 2s ease-out forwards;
+            pointer-events: none;
+        }
+
+        @keyframes lootFloat {
+            0% { transform: translate(-50%, -50%) scale(0) rotate(0deg); opacity: 1; }
+            50% { transform: translate(-50%, -80%) scale(1.2) rotate(180deg); opacity: 1; }
+            100% { transform: translate(-50%, -120%) scale(0.8) rotate(360deg); opacity: 0; }
+        }
+
+        .inventory-display {
+            margin-top: 15px;
+            padding: 15px;
+            background: #f8fafc;
+            border-radius: 10px;
+            border: 2px solid #e2e8f0;
+        }
+
+        .inventory-title {
+            font-weight: 700;
+            color: #667eea;
+            margin-bottom: 10px;
+            font-size: 1.1em;
+        }
+
+        .inventory-items {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .inventory-item {
+            background: white;
+            padding: 8px 15px;
+            border-radius: 8px;
+            border: 2px solid #667eea;
+            font-weight: 600;
+            font-size: 0.9em;
+            color: #667eea;
+        }
+
+        .multiplayer-lobby {
+            display: none;
+            text-align: center;
+            padding: 40px;
+        }
+
+        .lobby-title {
+            font-size: 2em;
+            color: #2d3748;
+            margin-bottom: 20px;
+            background: linear-gradient(135deg, #f093fb, #f5576c);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .room-code-display {
+            background: #f8fafc;
+            padding: 20px;
+            border-radius: 15px;
+            margin: 20px 0;
+            border: 3px solid #667eea;
+        }
+
+        .room-code {
+            font-size: 2.5em;
+            font-weight: 700;
+            color: #667eea;
+            letter-spacing: 0.1em;
+        }
+
+        .players-list {
+            margin: 20px 0;
+            text-align: left;
+        }
+
+        .player-item {
+            background: white;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 10px;
+            border-left: 4px solid #667eea;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .player-name {
+            font-weight: 600;
+            color: #2d3748;
+        }
+
+        .player-status {
+            color: #48bb78;
+            font-weight: 600;
+        }
+
+        .leaderboard {
+            margin-top: 20px;
+            padding: 20px;
+            background: #f8fafc;
+            border-radius: 15px;
+        }
+
+        .leaderboard-title {
+            font-size: 1.5em;
+            font-weight: 700;
+            color: #667eea;
+            margin-bottom: 15px;
+        }
+
+        .leaderboard-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px;
+            margin: 5px 0;
+            background: white;
+            border-radius: 8px;
+        }
+
+        .rank-1 { border-left: 4px solid #FFD700; }
+        .rank-2 { border-left: 4px solid #C0C0C0; }
+        .rank-3 { border-left: 4px solid #CD7F32; }
+
+        .json-format {
+            background: #1a202c;
+            color: #e2e8f0;
+            padding: 20px;
+            border-radius: 10px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+            margin-top: 20px;
+            overflow-x: auto;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 20px;
+                margin: 10px;
+            }
+            
+            .header h1 {
+                font-size: 2em;
+            }
+            
+            .stats {
+                grid-template-columns: 1fr;
+            }
+            
+            .action-buttons {
+                flex-direction: column;
+            }
+
+            .nav-buttons {
+                flex-direction: column;
+            }
+
+            .nav-btn {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Quiz Master</h1>
+            <p>Upload your JSON quiz file and start studying!</p>
+        </div>
+
+        <div id="upload-section" class="upload-section">
+            <div class="upload-icon">📚</div>
+            <h3>Drop your JSON file here or click to browse</h3>
+            <p style="margin: 15px 0; color: #718096;">Supported format: JSON with questions array</p>
+            <button class="upload-btn" onclick="document.getElementById('file-input').click()">
+                Choose File
+            </button>
+            <button class="battle-mode-btn" onclick="showBattleOptions()">
+                ⚔️ Battle Mode (Multiplayer)
+            </button>
+            <input type="file" id="file-input" class="file-input" accept=".json">
+            
+            <div class="json-format">
+<pre>{
+  "questions": [
+    {
+      "question": "What is the capital of France?",
+      "options": ["London", "Berlin", "Paris", "Madrid"],
+      "correct": 2
+    },
+    {
+      "question": "Which planet is known as the Red Planet?",
+      "options": ["Venus", "Mars", "Jupiter", "Saturn"],
+      "correct": 1
+    }
+  ]
+}
+
+<span style="color: #48bb78;">✨ Options automatically shuffle each time!</span></pre>
+            </div>
+        </div>
+
+        <div id="quiz-section" class="quiz-section">
+            <div id="battle-hud" class="battle-hud">
+                <div class="hud-stat">
+                    <div class="hud-label">Grade</div>
+                    <div class="hud-value grade-display" id="grade-display">F</div>
+                </div>
+                <div class="hud-stat">
+                    <div class="hud-label">Streak</div>
+                    <div class="hud-value" id="streak-display">0</div>
+                </div>
+                <div class="hud-stat">
+                    <div class="hud-label">Loot</div>
+                    <div class="hud-value" id="loot-count">0</div>
+                </div>
+            </div>
+
+            <div class="progress-bar">
+                <div id="progress-fill" class="progress-fill"></div>
+            </div>
+            
+            <div class="question-card">
+                <div id="question-number" class="question-number"></div>
+                <div id="question-text" class="question-text"></div>
+                <div id="answers-container"></div>
+                <div id="feedback" class="feedback"></div>
+                
+                <div id="inventory-display" class="inventory-display" style="display: none;">
+                    <div class="inventory-title">🎒 Inventory</div>
+                    <div id="inventory-items" class="inventory-items"></div>
+                </div>
+
+                <div class="nav-buttons">
+                    <button id="prev-btn" class="nav-btn">← Previous</button>
+                    <button id="next-btn" class="next-btn">Next Question</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="multiplayer-lobby" class="multiplayer-lobby">
+            <h2 class="lobby-title">⚔️ Battle Mode Lobby</h2>
+            <div class="room-code-display">
+                <div style="font-size: 0.9em; color: #718096; margin-bottom: 10px;">Room Code</div>
+                <div class="room-code" id="room-code">----</div>
+                <div style="font-size: 0.9em; color: #718096; margin-top: 10px;">Share this code with others!</div>
+            </div>
+            
+            <div class="players-list">
+                <h3 style="color: #667eea; margin-bottom: 15px;">Players in Room</h3>
+                <div id="players-container"></div>
+            </div>
+
+            <div class="action-buttons">
+                <button id="start-battle" class="action-btn primary-btn">Start Battle</button>
+                <button id="leave-lobby" class="action-btn secondary-btn">Leave Lobby</button>
+            </div>
+        </div>
+
+        <div id="results-section" class="results-section">
+            <h2 class="results-title">Quiz Complete! 🎉</h2>
+            <div class="score-circle">
+                <span id="final-score" class="score-text">0%</span>
+            </div>
+            
+            <div id="battle-results" style="display: none;">
+                <div class="leaderboard">
+                    <div class="leaderboard-title">🏆 Battle Results</div>
+                    <div id="leaderboard-container"></div>
+                </div>
+            </div>
+            
+            <div class="stats">
+                <div class="stat-card">
+                    <div id="correct-count" class="stat-number">0</div>
+                    <div class="stat-label">Correct</div>
+                </div>
+                <div class="stat-card">
+                    <div id="wrong-count" class="stat-number">0</div>
+                    <div class="stat-label">Wrong</div>
+                </div>
+                <div class="stat-card">
+                    <div id="total-questions" class="stat-number">0</div>
+                    <div class="stat-label">Total</div>
+                </div>
+                <div class="stat-card">
+                    <div id="accuracy" class="stat-number">0%</div>
+                    <div class="stat-label">Accuracy</div>
+                </div>
+            </div>
+            
+            <div class="action-buttons">
+                <button id="restart-quiz" class="action-btn primary-btn">Retake Quiz</button>
+                <button id="review-wrong" class="action-btn secondary-btn" style="display:none;">Review Wrong Answers</button>
+                <button id="new-quiz" class="action-btn secondary-btn">Load New Quiz</button>
+                <button id="reset-stats" class="action-btn secondary-btn">Reset Stats</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- AI Helper Button -->
+    <button class="ai-helper-btn" onclick="openAIHelper()" title="Quiz Master AI">
+        🤖
+    </button>
+
+    <!-- AI Helper Popup -->
+    <div id="ai-popup" class="popup-overlay">
+        <div class="popup-content">
+            <div class="popup-header">
+                <h3 class="popup-title">🤖 Quiz Master AI</h3>
+                <button class="close-btn" onclick="closeAIHelper()">&times;</button>
+            </div>
+            
+            <div id="chat-container" class="chat-container">
+                <div class="message ai-message">
+                    Hi! I'm Quiz Master AI! 🤖✨<br><br>
+                    I'm your intelligent study companion! I can help you with anything and create quizzes instantly.<br><br>
+                    <strong>🎯 Commands:</strong><br>
+                    • <strong>/q</strong> - Create quiz instantly (no download needed)<br>
+                    • <strong>/qjson</strong> - Create quiz and download JSON file<br>
+                    • <strong>/ai</strong> - Chat, ask questions, get help with anything<br><br>
+                    <strong>💡 What I can do:</strong><br>
+                    • Create quizzes from any text, questions, or even paragraphs<br>
+                    • Generate questions from study material automatically<br>
+                    • Answer any questions you have<br>
+                    • Help with homework, explanations, and more<br><br>
+                    <strong>Just type a command and let's get started!</strong> 🚀
+                </div>
+            </div>
+            
+            <div class="input-container">
+                <textarea id="chat-input" class="chat-input" 
+                    placeholder="Type a command (/q, /qjson, /ai) or ask me anything..." 
+                    rows="3"></textarea>
+                <button id="send-btn" class="send-btn" onclick="sendMessage()">Send</button>
+            </div>
+            
+            <button id="download-btn" class="download-btn" onclick="downloadJSON()">
+                📥 Download JSON File
+            </button>
+            
+            <div class="typing-indicator" id="typing-indicator">
+                Quiz Master AI is analyzing your questions... ⏳
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+        let quizData = null;
+        let originalQuizData = null;
+        let currentQuestion = 0;
+        let score = 0;
+        let totalQuestions = 0;
+        let answered = false;
+        let userAnswers = [];
+        let generatedJSON = null;
+        let geminiApiKey = 'AIzaSyAPICmV7T5v5mcIWmLkaZS29npr-1XZjDs';
+        let currentMode = 'normal';
+        let isAIGeneratedQuiz = false;
+        let wrongAnswersMode = false;
+        let wrongQuestionIndices = [];
+        let wrongQuestionReviewMap = {};
+        let allQuestionsPool = [];
+        let unansweredQuestions = [];
+        let wrongQuestionsPool = [];
+        
+        // Battle Mode variables
+        let battleMode = false;
+        let currentStreak = 0;
+        let maxStreak = 0;
+        let currentGrade = 'F';
+        let inventory = [];
+        let roomCode = '';
+        let players = {};
+        let playerName = '';
+        let isHost = false;
+
+        // Stats tracking
+        let stats = {
+            totalCorrect: 0,
+            totalWrong: 0,
+            totalAttempts: 0
+        };
+
+        const fileInput = document.getElementById('file-input');
+        const uploadSection = document.getElementById('upload-section');
+        const quizSection = document.getElementById('quiz-section');
+        const resultsSection = document.getElementById('results-section');
+
+        // File upload handling
+        fileInput.addEventListener('change', handleFile);
+        uploadSection.addEventListener('click', () => fileInput.click());
+        uploadSection.addEventListener('dragover', handleDragOver);
+        uploadSection.addEventListener('drop', handleDrop);
+
+        function handleDragOver(e) {
+            e.preventDefault();
+            uploadSection.classList.add('dragover');
+        }
+
+        function handleDrop(e) {
+            e.preventDefault();
+            uploadSection.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                processFile(files[0]);
+            }
+        }
+
+        function handleFile(e) {
+            const file = e.target.files[0];
+            if (file) {
+                processFile(file);
+            }
+        }
+
+        function processFile(file) {
+            if (!file.name.endsWith('.json') && file.type !== 'application/json') {
+                alert('Please upload a JSON file');
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const jsonText = e.target.result;
+                    originalQuizData = JSON.parse(jsonText);
+                    
+                    // Validate the structure
+                    if (!originalQuizData || typeof originalQuizData !== 'object') {
+                        throw new Error('Invalid JSON structure: Root must be an object');
+                    }
+                    
+                    if (!originalQuizData.questions) {
+                        throw new Error('Invalid JSON format: Missing "questions" property');
+                    }
+                    
+                    if (!Array.isArray(originalQuizData.questions)) {
+                        throw new Error('Invalid JSON format: "questions" must be an array');
+                    }
+                    
+                    if (originalQuizData.questions.length === 0) {
+                        throw new Error('Invalid JSON format: "questions" array is empty');
+                    }
+                    
+                    // Validate each question
+                    for (let i = 0; i < originalQuizData.questions.length; i++) {
+                        const q = originalQuizData.questions[i];
+                        if (!q.question || typeof q.question !== 'string') {
+                            throw new Error(`Question ${i + 1}: Missing or invalid "question" field`);
+                        }
+                        if (!q.options || !Array.isArray(q.options)) {
+                            throw new Error(`Question ${i + 1}: Missing or invalid "options" array`);
+                        }
+                        if (q.options.length < 2) {
+                            throw new Error(`Question ${i + 1}: Must have at least 2 options`);
+                        }
+                        if (typeof q.correct !== 'number') {
+                            throw new Error(`Question ${i + 1}: Missing or invalid "correct" field (must be a number)`);
+                        }
+                        if (q.correct < 0 || q.correct >= q.options.length) {
+                            throw new Error(`Question ${i + 1}: "correct" index out of range (must be 0-${q.options.length - 1})`);
+                        }
+                    }
+                    
+                    // All validation passed!
+                    isAIGeneratedQuiz = false;
+                    wrongAnswersMode = false;
+                    
+                    // Start the quiz immediately
+                    startQuiz();
+                    
+                } catch (error) {
+                    console.error('JSON parsing error:', error);
+                    alert(`❌ Invalid JSON file\n\nError: ${error.message}\n\nPlease check your file format and try again.`);
+                }
+            };
+            
+            reader.onerror = function() {
+                alert('❌ Error reading file. Please try again.');
+            };
+            
+            reader.readAsText(file);
+        }
+
+        function shuffleQuestionOptions(question) {
+            const correctAnswer = question.options[question.correct];
+            
+            const indices = [...Array(question.options.length).keys()];
+            for (let i = indices.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [indices[i], indices[j]] = [indices[j], indices[i]];
+            }
+            
+            const shuffledOptions = indices.map(i => question.options[i]);
+            question.options = shuffledOptions;
+            question.correct = shuffledOptions.indexOf(correctAnswer);
+        }
+
+        function shuffleArray(arr) {
+            const newArr = [...arr];
+            for (let i = newArr.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [newArr[i], newArr[j]] = [newArr[j], newArr[i]];
+            }
+            return newArr;
+        }
+
+        function startQuiz() {
+            uploadSection.style.display = 'none';
+            resultsSection.style.display = 'none';
+            quizSection.style.display = 'block';
+            document.getElementById('multiplayer-lobby').style.display = 'none';
+            
+            // Stop player sync when quiz starts
+            stopPlayerSync();
+            
+            currentQuestion = 0;
+            score = 0;
+            userAnswers = [];
+            answered = false;
+            
+            // Reset battle mode stats
+            if (battleMode) {
+                currentStreak = 0;
+                maxStreak = 0;
+                currentGrade = 'F';
+                inventory = [];
+                updateBattleHUD();
+                document.getElementById('battle-hud').style.display = 'grid';
+                document.getElementById('inventory-display').style.display = 'block';
+            } else {
+                document.getElementById('battle-hud').style.display = 'none';
+                document.getElementById('inventory-display').style.display = 'none';
+            }
+            
+            // Initialize question pools
+            quizData = JSON.parse(JSON.stringify(originalQuizData));
+            const allIndices = [...Array(quizData.questions.length).keys()];
+            const shuffledIndices = shuffleArray(allIndices);
+            
+            allQuestionsPool = shuffledIndices.map(idx => ({
+                originalIndex: idx,
+                question: quizData.questions[idx],
+                timesAppeared: 0
+            }));
+            
+            unansweredQuestions = [...allQuestionsPool];
+            wrongQuestionsPool = [];
+            totalQuestions = allQuestionsPool.length;
+            
+            if (!isAIGeneratedQuiz) {
+                allQuestionsPool.forEach(q => shuffleQuestionOptions(q.question));
+            }
+            
+            showQuestion();
+        }
+
+        function showQuestion() {
+            answered = false;
+            
+            // Pick next question: 70% chance from unanswered, 30% from wrong pool if available
+            let currentQuestionData;
+            if (wrongQuestionsPool.length > 0 && Math.random() < 0.3 && unansweredQuestions.length > 0) {
+                // Randomly select from wrong pool
+                const idx = Math.floor(Math.random() * wrongQuestionsPool.length);
+                currentQuestionData = wrongQuestionsPool[idx];
+            } else if (unansweredQuestions.length > 0) {
+                // Take from unanswered
+                currentQuestionData = unansweredQuestions.shift();
+            } else if (wrongQuestionsPool.length > 0) {
+                // All questions answered, continue with wrong pool
+                const idx = Math.floor(Math.random() * wrongQuestionsPool.length);
+                currentQuestionData = wrongQuestionsPool[idx];
+            } else {
+                showResults();
+                return;
+            }
+            
+            const question = currentQuestionData.question;
+            
+            // Calculate progress - based on total answered correctly
+            const totalAnswered = allQuestionsPool.filter(q => q.timesAppeared > 0).length;
+            const progress = (totalAnswered / allQuestionsPool.length) * 100;
+            
+            let questionLabel = `Question ${totalAnswered + 1} of ${allQuestionsPool.length}`;
+            let badge = '';
+            
+            if (currentQuestionData.timesAppeared > 0) {
+                badge = `<span class="question-badge">Review #${currentQuestionData.timesAppeared}</span>`;
+            }
+            
+            document.getElementById('question-number').innerHTML = questionLabel + badge;
+            document.getElementById('question-text').textContent = question.question;
+            document.getElementById('progress-fill').style.width = progress + '%';
+            
+            const answersContainer = document.getElementById('answers-container');
+            answersContainer.innerHTML = '';
+            
+            question.options.forEach((option, index) => {
+                const button = document.createElement('button');
+                button.className = 'answer-btn';
+                button.textContent = option;
+                button.onclick = () => selectAnswer(index, currentQuestionData);
+                answersContainer.appendChild(button);
+            });
+            
+            document.getElementById('feedback').style.display = 'none';
+            updateNavButtons();
+        }
+
+        function updateNavButtons() {
+            const prevBtn = document.getElementById('prev-btn');
+            const nextBtn = document.getElementById('next-btn');
+            
+            prevBtn.style.display = 'none';
+            
+            if (unansweredQuestions.length > 0 || wrongQuestionsPool.length > 0) {
+                nextBtn.textContent = 'Next Question';
+                nextBtn.style.display = 'block';
+                nextBtn.disabled = !answered;
+            } else {
+                nextBtn.textContent = 'Finish';
+                nextBtn.style.display = 'block';
+                nextBtn.disabled = !answered;
+            }
+        }
+
+        function selectAnswer(selectedIndex, questionData) {
+            if (answered) return;
+            
+            answered = true;
+            const question = questionData.question;
+            const correctIndex = question.correct;
+            const buttons = document.querySelectorAll('.answer-btn');
+            
+            buttons.forEach(btn => btn.classList.add('disabled'));
+            
+            questionData.timesAppeared++;
+            
+            if (selectedIndex === correctIndex) {
+                buttons[selectedIndex].classList.add('correct');
+                score++;
+                showFeedback(true, question.explanation);
+                stats.totalCorrect++;
+                
+                // Remove from wrong pool if they got it right
+                wrongQuestionsPool = wrongQuestionsPool.filter(q => q !== questionData);
+                
+                // Battle mode bonuses
+                if (battleMode) {
+                    currentStreak++;
+                    if (currentStreak > maxStreak) maxStreak = currentStreak;
+                    checkKillstreak();
+                    generateLoot();
+                    updateGrade();
+                    updateBattleHUD();
+                }
+            } else {
+                buttons[selectedIndex].classList.add('incorrect');
+                buttons[correctIndex].classList.add('correct');
+                showFeedback(false, question.explanation);
+                stats.totalWrong++;
+                
+                // Add to wrong pool if not already there
+                if (!wrongQuestionsPool.includes(questionData)) {
+                    wrongQuestionsPool.push(questionData);
+                }
+                
+                // Battle mode penalties
+                if (battleMode) {
+                    currentStreak = 0;
+                    updateGrade();
+                    updateBattleHUD();
+                }
+            }
+            
+            stats.totalAttempts++;
+            updateNavButtons();
+        }
+
+        function showFeedback(correct, explanation) {
+            const feedback = document.getElementById('feedback');
+            feedback.style.display = 'block';
+            feedback.className = `feedback ${correct ? 'correct' : 'incorrect'}`;
+            
+            if (correct) {
+                if (isAIGeneratedQuiz && explanation) {
+                    feedback.innerHTML = '✅ Correct! ' + explanation;
+                } else {
+                    feedback.innerHTML = '✅ Correct! ' + (explanation ? explanation : 'Great job!');
+                }
+            } else {
+                if (isAIGeneratedQuiz && explanation) {
+                    feedback.innerHTML = '❌ Incorrect. ' + explanation;
+                } else {
+                    feedback.innerHTML = '❌ Incorrect. ' + (explanation ? explanation : 'Better luck next time!');
+                }
+            }
+        }
+
+        function previousQuestion() {
+            if (currentQuestion > 0) {
+                currentQuestion--;
+                showQuestion();
+            }
+        }
+
+        function nextQuestion() {
+            if (unansweredQuestions.length > 0 || wrongQuestionsPool.length > 0) {
+                showQuestion();
+            } else {
+                showResults();
+            }
+        }
+
+        function showResults() {
+            quizSection.style.display = 'none';
+            resultsSection.style.display = 'block';
+            
+            stopPlayerSync();
+            
+            const percentage = Math.round((score / allQuestionsPool.length) * 100);
+            const overallAccuracy = stats.totalAttempts > 0 ? 
+                Math.round((stats.totalCorrect / stats.totalAttempts) * 100) : 0;
+            
+            document.getElementById('final-score').textContent = percentage + '%';
+            document.getElementById('correct-count').textContent = score;
+            document.getElementById('wrong-count').textContent = allQuestionsPool.length - score;
+            document.getElementById('total-questions').textContent = allQuestionsPool.length;
+            document.getElementById('accuracy').textContent = overallAccuracy + '%';
+            
+            const reviewWrongBtn = document.getElementById('review-wrong');
+            reviewWrongBtn.style.display = 'none';
+            
+            if (battleMode) {
+                saveBattleResults();
+                showBattleResults();
+            } else {
+                document.getElementById('battle-results').style.display = 'none';
+            }
+        }
+        
+        async function saveBattleResults() {
+            if (!battleMode || !roomCode) return;
+            
+            try {
+                // Update player's final stats
+                const playersResult = await window.storage.get(`battle_players_${roomCode}`, true);
+                if (playersResult && playersResult.value) {
+                    const currentPlayers = JSON.parse(playersResult.value);
+                    if (currentPlayers[playerName]) {
+                        currentPlayers[playerName].score = score;
+                        currentPlayers[playerName].grade = currentGrade;
+                        currentPlayers[playerName].streak = maxStreak;
+                        currentPlayers[playerName].loot = inventory.length;
+                        currentPlayers[playerName].completed = true;
+                        
+                        await window.storage.set(`battle_players_${roomCode}`, JSON.stringify(currentPlayers), true);
+                        players = currentPlayers;
+                    }
+                }
+            } catch (e) {
+                console.error('Error saving battle results:', e);
+            }
+        }
+        
+        // Battle Mode Functions
+        async function showBattleOptions() {
+            if (!originalQuizData) {
+                alert('⚠️ Host must upload a quiz file first!\n\nPlease upload a quiz JSON file before creating a battle room.');
+                return;
+            }
+            
+            const options = prompt('Enter "host" to create a room or enter a room code to join:');
+            if (!options) return;
+            
+            if (options.toLowerCase() === 'host') {
+                // Host creates room - quiz already uploaded
+                playerName = prompt('Enter your name:');
+                if (!playerName || playerName.trim() === '') {
+                    alert('You must enter a name to join the battle!');
+                    return;
+                }
+                playerName = playerName.trim();
+                await createBattleRoom();
+            } else {
+                // Player joins room
+                playerName = prompt('Enter your name:');
+                if (!playerName || playerName.trim() === '') {
+                    alert('You must enter a name to join the battle!');
+                    return;
+                }
+                playerName = playerName.trim();
+                await joinBattleRoom(options.toUpperCase());
+            }
+        }
+        
+        async function createBattleRoom() {
+            roomCode = generateRoomCode();
+            isHost = true;
+            battleMode = true;
+            
+            // Store quiz data in persistent shared storage (accessible across browsers)
+            try {
+                await window.storage.set(`battle_quiz_${roomCode}`, JSON.stringify(originalQuizData), true);
+                await window.storage.set(`battle_quiz_${roomCode}_ai`, isAIGeneratedQuiz.toString(), true);
+                await window.storage.set(`battle_quiz_${roomCode}_created`, Date.now().toString(), true);
+                
+                // Initialize players list
+                players[playerName] = {
+                    name: playerName,
+                    score: 0,
+                    grade: 'F',
+                    streak: 0,
+                    loot: 0,
+                    ready: true
+                };
+                
+                await window.storage.set(`battle_players_${roomCode}`, JSON.stringify(players), true);
+                
+                showLobby();
+                startPlayerSync();
+            } catch (e) {
+                alert('❌ Error creating battle room. Please try again.');
+                console.error('Battle room creation error:', e);
+            }
+        }
+        
+        async function joinBattleRoom(code) {
+            roomCode = code;
+            isHost = false;
+            battleMode = true;
+            
+            // Retrieve quiz data from persistent storage (works across browsers!)
+            try {
+                const quizDataResult = await window.storage.get(`battle_quiz_${roomCode}`, true);
+                const aiGeneratedResult = await window.storage.get(`battle_quiz_${roomCode}_ai`, true);
+                
+                if (quizDataResult && quizDataResult.value) {
+                    originalQuizData = JSON.parse(quizDataResult.value);
+                    isAIGeneratedQuiz = aiGeneratedResult?.value === 'true';
+                    
+                    // Add player to the room
+                    const playersResult = await window.storage.get(`battle_players_${roomCode}`, true);
+                    if (playersResult && playersResult.value) {
+                        players = JSON.parse(playersResult.value);
+                    }
+                    
+                    players[playerName] = {
+                        name: playerName,
+                        score: 0,
+                        grade: 'F',
+                        streak: 0,
+                        loot: 0,
+                        ready: true
+                    };
+                    
+                    await window.storage.set(`battle_players_${roomCode}`, JSON.stringify(players), true);
+                    
+                    showLobby();
+                    startPlayerSync();
+                } else {
+                    alert(`❌ Room ${code} not found!\n\nMake sure:\n1. The room code is correct\n2. The host has created the room\n3. The room hasn't expired`);
+                }
+            } catch (e) {
+                alert(`❌ Unable to join room ${code}\n\nThe room may not exist or the quiz data couldn't be loaded. Please check the room code and try again.`);
+                console.error('Join room error:', e);
+            }
+        }
+        
+        // Sync players in real-time
+        let playerSyncInterval = null;
+        
+        function startPlayerSync() {
+            if (playerSyncInterval) {
+                clearInterval(playerSyncInterval);
+            }
+            
+            playerSyncInterval = setInterval(async () => {
+                try {
+                    const playersResult = await window.storage.get(`battle_players_${roomCode}`, true);
+                    if (playersResult && playersResult.value) {
+                        players = JSON.parse(playersResult.value);
+                        updatePlayersDisplay();
+                    }
+                } catch (e) {
+                    console.error('Player sync error:', e);
+                }
+            }, 2000); // Sync every 2 seconds
+        }
+        
+        function stopPlayerSync() {
+            if (playerSyncInterval) {
+                clearInterval(playerSyncInterval);
+                playerSyncInterval = null;
+            }
+        }
+        
+        function generateRoomCode() {
+            const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+            let code = '';
+            for (let i = 0; i < 6; i++) {
+                code += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
+            return code;
+        }
+        
+        function showLobby() {
+            uploadSection.style.display = 'none';
+            document.getElementById('multiplayer-lobby').style.display = 'block';
+            document.getElementById('room-code').textContent = roomCode;
+            
+            // Update instructions based on role
+            const instructionDiv = document.querySelector('.room-code-display div:last-child');
+            if (isHost) {
+                instructionDiv.innerHTML = '✨ You are the <strong>HOST</strong>! Share this code with others!<br>Players can join from any browser or device!';
+                instructionDiv.style.color = '#667eea';
+                instructionDiv.style.fontWeight = '600';
+            } else {
+                instructionDiv.textContent = '✅ Successfully joined! Wait for the host to start the battle.';
+                instructionDiv.style.color = '#48bb78';
+                instructionDiv.style.fontWeight = '600';
+            }
+            
+            updatePlayersDisplay();
+        }
+        
+        function updatePlayersDisplay() {
+            const container = document.getElementById('players-container');
+            container.innerHTML = '';
+            
+            Object.values(players).forEach(player => {
+                const playerDiv = document.createElement('div');
+                playerDiv.className = 'player-item';
+                const isCurrentPlayer = player.name === playerName;
+                playerDiv.innerHTML = `
+                    <span class="player-name">${player.name}${isCurrentPlayer ? ' (You)' : ''}</span>
+                    <span class="player-status">✓ Ready</span>
+                `;
+                container.appendChild(playerDiv);
+            });
+            
+            // Show player count
+            const countDiv = document.createElement('div');
+            countDiv.style.textAlign = 'center';
+            countDiv.style.marginTop = '10px';
+            countDiv.style.color = '#718096';
+            countDiv.style.fontSize = '0.9em';
+            countDiv.textContent = `${Object.keys(players).length} player(s) in lobby`;
+            container.appendChild(countDiv);
+        }
+        
+        function updateGrade() {
+            const accuracy = score / (score + (allQuestionsPool.length - score - unansweredQuestions.length)) || 0;
+            const percentage = accuracy * 100;
+            
+            if (percentage >= 97) currentGrade = 'S+';
+            else if (percentage >= 93) currentGrade = 'S';
+            else if (percentage >= 90) currentGrade = 'A+';
+            else if (percentage >= 87) currentGrade = 'A';
+            else if (percentage >= 83) currentGrade = 'A-';
+            else if (percentage >= 80) currentGrade = 'B+';
+            else if (percentage >= 77) currentGrade = 'B';
+            else if (percentage >= 73) currentGrade = 'B-';
+            else if (percentage >= 70) currentGrade = 'C+';
+            else if (percentage >= 67) currentGrade = 'C';
+            else if (percentage >= 63) currentGrade = 'C-';
+            else if (percentage >= 60) currentGrade = 'D';
+            else currentGrade = 'F';
+        }
+        
+        function checkKillstreak() {
+            const streaks = {
+                3: '🔥 Triple Kill!',
+                5: '⚡ Mega Kill!',
+                7: '💫 Ultra Kill!',
+                10: '🌟 Monster Kill!',
+                15: '👑 Godlike!',
+                20: '💎 Legendary!'
+            };
+            
+            if (streaks[currentStreak]) {
+                showKillstreakNotification(streaks[currentStreak]);
+            }
+        }
+        
+        function showKillstreakNotification(message) {
+            const notification = document.createElement('div');
+            notification.className = 'killstreak-notification';
+            notification.textContent = message;
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.remove();
+            }, 1000);
+        }
+        
+        function generateLoot() {
+            const lootTable = [
+                { name: '📚 Knowledge Tome', chance: 0.3 },
+                { name: '⚔️ Answer Sword', chance: 0.25 },
+                { name: '🛡️ Shield of Wisdom', chance: 0.2 },
+                { name: '💎 Rare Gem', chance: 0.15 },
+                { name: '🏆 Epic Trophy', chance: 0.07 },
+                { name: '👑 Legendary Crown', chance: 0.03 }
+            ];
+            
+            const roll = Math.random();
+            let cumulativeChance = 0;
+            
+            for (const item of lootTable) {
+                cumulativeChance += item.chance;
+                if (roll <= cumulativeChance) {
+                    inventory.push(item.name);
+                    showLootDrop(item.name);
+                    break;
+                }
+            }
+        }
+        
+        function showLootDrop(lootName) {
+            const loot = document.createElement('div');
+            loot.className = 'loot-drop';
+            loot.textContent = `+${lootName}`;
+            document.querySelector('.question-card').appendChild(loot);
+            
+            setTimeout(() => {
+                loot.remove();
+            }, 2000);
+        }
+        
+        function updateBattleHUD() {
+            document.getElementById('grade-display').textContent = currentGrade;
+            document.getElementById('streak-display').textContent = currentStreak;
+            document.getElementById('loot-count').textContent = inventory.length;
+            
+            const inventoryContainer = document.getElementById('inventory-items');
+            inventoryContainer.innerHTML = '';
+            inventory.forEach(item => {
+                const itemDiv = document.createElement('div');
+                itemDiv.className = 'inventory-item';
+                itemDiv.textContent = item;
+                inventoryContainer.appendChild(itemDiv);
+            });
+        }
+        
+        function showBattleResults() {
+            document.getElementById('battle-results').style.display = 'block';
+            
+            const leaderboardData = [];
+            
+            // Add all players from the room
+            Object.values(players).forEach(player => {
+                leaderboardData.push({
+                    name: player.name,
+                    score: player.score || 0,
+                    grade: player.grade || 'F',
+                    streak: player.streak || 0,
+                    loot: player.loot || 0,
+                    completed: player.completed || false
+                });
+            });
+            
+            leaderboardData.sort((a, b) => b.score - a.score);
+            
+            const container = document.getElementById('leaderboard-container');
+            container.innerHTML = '';
+            
+            leaderboardData.forEach((player, index) => {
+                const item = document.createElement('div');
+                item.className = `leaderboard-item ${index < 3 ? 'rank-' + (index + 1) : ''}`;
+                const isCurrentPlayer = player.name === playerName;
+                item.innerHTML = `
+                    <div>
+                        <strong>#${index + 1} ${player.name}${isCurrentPlayer ? ' (You)' : ''}</strong>
+                        <div style="font-size: 0.85em; color: #718096;">
+                            Grade: ${player.grade} | Streak: ${player.streak} | Loot: ${player.loot}
+                            ${!player.completed ? ' • <span style="color: #f5576c;">In Progress</span>' : ''}
+                        </div>
+                    </div>
+                    <div style="font-size: 1.5em; font-weight: 700; color: #667eea;">
+                        ${player.score}
+                    </div>
+                `;
+                container.appendChild(item);
+            });
+        }
+
+        function saveStats() {
+            localStorage.setItem('totalCorrect', stats.totalCorrect.toString());
+            localStorage.setItem('totalWrong', stats.totalWrong.toString());
+            localStorage.setItem('totalAttempts', stats.totalAttempts.toString());
+        }
+
+        function resetStats() {
+            stats = { totalCorrect: 0, totalWrong: 0, totalAttempts: 0 };
+            saveStats();
+            if (resultsSection.style.display !== 'none') {
+                showResults();
+            }
+        }
+
+        // Event listeners
+        document.getElementById('prev-btn').addEventListener('click', previousQuestion);
+        document.getElementById('next-btn').addEventListener('click', nextQuestion);
+        document.getElementById('restart-quiz').addEventListener('click', startQuiz);
+        document.getElementById('review-wrong').addEventListener('click', () => {
+            wrongAnswersMode = true;
+            startQuiz();
+        });
+        document.getElementById('new-quiz').addEventListener('click', () => {
+            uploadSection.style.display = 'block';
+            quizSection.style.display = 'none';
+            resultsSection.style.display = 'none';
+            document.getElementById('multiplayer-lobby').style.display = 'none';
+            fileInput.value = '';
+            isAIGeneratedQuiz = false;
+            wrongAnswersMode = false;
+            battleMode = false;
+            currentMode = 'normal';
+        });
+        document.getElementById('reset-stats').addEventListener('click', resetStats);
+        document.getElementById('start-battle').addEventListener('click', () => {
+            if (!originalQuizData) {
+                alert('⚠️ No quiz loaded! The host must have uploaded a quiz file.');
+                return;
+            }
+            if (!isHost) {
+                alert('⚠️ Only the host can start the battle!');
+                return;
+            }
+            startQuiz();
+        });
+        document.getElementById('leave-lobby').addEventListener('click', async () => {
+            const confirmLeave = confirm('Are you sure you want to leave the battle lobby?');
+            if (!confirmLeave) return;
+            
+            stopPlayerSync();
+            
+            // Remove player from room
+            try {
+                delete players[playerName];
+                await window.storage.set(`battle_players_${roomCode}`, JSON.stringify(players), true);
+                
+                // Clean up if host is leaving
+                if (isHost) {
+                    await window.storage.delete(`battle_quiz_${roomCode}`, true);
+                    await window.storage.delete(`battle_quiz_${roomCode}_ai`, true);
+                    await window.storage.delete(`battle_quiz_${roomCode}_created`, true);
+                    await window.storage.delete(`battle_players_${roomCode}`, true);
+                }
+            } catch (e) {
+                console.log('Could not clean up storage:', e);
+            }
+            
+            battleMode = false;
+            roomCode = '';
+            players = {};
+            isHost = false;
+            uploadSection.style.display = 'block';
+            document.getElementById('multiplayer-lobby').style.display = 'none';
+        });
+
+        // AI Helper Functions
+        function openAIHelper() {
+            document.getElementById('ai-popup').style.display = 'flex';
+        }
+
+        function closeAIHelper() {
+            document.getElementById('ai-popup').style.display = 'none';
+        }
+
+        async function sendMessage() {
+            const input = document.getElementById('chat-input');
+            const message = input.value.trim();
+            
+            if (!message) {
+                alert('Please enter a message!');
+                return;
+            }
+
+            addMessage(message, 'user');
+            input.value = '';
+            
+            document.getElementById('typing-indicator').style.display = 'block';
+            document.getElementById('send-btn').disabled = true;
+            
+            try {
+                if (message.startsWith('/')) {
+                    await handleCommand(message);
+                } else {
+                    if (currentMode === 'quiz') {
+                        await createInstantQuiz(message);
+                    } else if (currentMode === 'qjson') {
+                        await createJSONQuiz(message);
+                    } else if (currentMode === 'ai') {
+                        await handleAIChat(message);
+                    } else {
+                        await showHelp();
+                    }
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                document.getElementById('typing-indicator').style.display = 'none';
+                document.getElementById('send-btn').disabled = false;
+                addMessage(`❌ Sorry, I encountered an error. Please try again later!`, 'ai');
+            }
+        }
+
+        async function handleCommand(message) {
+            const command = message.toLowerCase().trim();
+            
+            if (command === '/q') {
+                currentMode = 'quiz';
+                document.getElementById('typing-indicator').style.display = 'none';
+                document.getElementById('send-btn').disabled = false;
+                addMessage(`🎯 <strong>Quiz Mode Activated!</strong><br><br>
+                    Now paste your questions, study material, or even just paragraphs of text. I'll create a quiz instantly and start it for you!<br><br>
+                    <strong>I can work with:</strong><br>
+                    • Existing questions with answers<br>
+                    • Study notes or textbook passages<br>
+                    • Any educational content<br><br>
+                    <strong>Ready for your content!</strong> 📚`, 'ai');
+                    
+            } else if (command === '/qjson') {
+                currentMode = 'qjson';
+                document.getElementById('typing-indicator').style.display = 'none';
+                document.getElementById('send-btn').disabled = false;
+                addMessage(`📥 <strong>JSON Quiz Mode Activated!</strong><br><br>
+                    I'll create a quiz and provide it as a downloadable JSON file.<br><br>
+                    Paste your questions or study material below! 📋`, 'ai');
+                    
+            } else if (command === '/ai') {
+                currentMode = 'ai';
+                document.getElementById('typing-indicator').style.display = 'none';
+                document.getElementById('send-btn').disabled = false;
+                addMessage(`🤖 <strong>AI Chat Mode Activated!</strong><br><br>
+                    I'm ready to help with anything! Ask me questions, get explanations, homework help, or just chat.<br><br>
+                    <strong>What can I help you with?</strong> 💬`, 'ai');
+                    
+            } else {
+                document.getElementById('typing-indicator').style.display = 'none';
+                document.getElementById('send-btn').disabled = false;
+                addMessage(`❓ Unknown command. Available commands:<br><br>
+                    • <strong>/q</strong> - Create instant quiz<br>
+                    • <strong>/qjson</strong> - Create quiz with JSON download<br>
+                    • <strong>/ai</strong> - Chat and ask questions<br><br>
+                    Try one of these! 😊`, 'ai');
+            }
+        }
+
+        async function createInstantQuiz(userInput) {
+            const prompt = `You are Quiz Master AI. Create a quiz from the following content and return ONLY valid JSON.
+
+IMPORTANT: Always provide detailed explanations for each question to help users learn.
+
+Required JSON format:
+{
+  "questions": [
+    {
+      "question": "Question text here",
+      "options": ["Option 1", "Option 2", "Option 3", "Option 4"],
+      "correct": 0,
+      "explanation": "Detailed explanation of why this answer is correct and why others are wrong"
+    }
+  ]
+}
+
+Rules:
+1. If user provides existing questions, convert them properly
+2. If user provides study material/paragraphs, create questions from the content
+3. Always create exactly 4 options for each question
+4. Use index 0-3 for correct answer (0=first option, etc.)
+5. ALWAYS provide detailed explanations for learning
+6. Make explanations educational and helpful
+7. For wrong answers, explain why they're incorrect
+
+Content to create quiz from:
+${userInput}`;
+
+            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiApiKey}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    contents: [{
+                        parts: [{
+                            text: prompt
+                        }]
+                    }]
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error(`Processing failed: ${response.status}`);
+            }
+
+            const data = await response.json();
+            
+            if (!data.candidates || !data.candidates[0] || !data.candidates[0].content) {
+                throw new Error('Invalid response from Quiz Master AI');
+            }
+
+            const generatedText = data.candidates[0].content.parts[0].text;
+            const jsonMatch = generatedText.match(/\{[\s\S]*\}/);
+            if (!jsonMatch) {
+                throw new Error('No valid JSON found in response');
+            }
+
+            try {
+                const quizJSON = JSON.parse(jsonMatch[0]);
+                
+                if (!quizJSON.questions || !Array.isArray(quizJSON.questions)) {
+                    throw new Error('Invalid JSON format - missing questions array');
+                }
+
+                document.getElementById('typing-indicator').style.display = 'none';
+                document.getElementById('send-btn').disabled = false;
+
+                addMessage(`🎉 Perfect! I created a quiz with ${quizJSON.questions.length} questions!<br><br>
+                    <strong>Starting your quiz now...</strong> 🚀`, 'ai');
+
+                setTimeout(() => {
+                    originalQuizData = quizJSON;
+                    isAIGeneratedQuiz = true;
+                    wrongAnswersMode = false;
+                    closeAIHelper();
+                    startQuiz();
+                }, 1500);
+
+            } catch (parseError) {
+                throw new Error(`Failed to parse quiz data: ${parseError.message}`);
+            }
+        }
+
+        async function createJSONQuiz(userInput) {
+            await processQuestionsWithAI(userInput);
+        }
+
+        async function handleAIChat(userInput) {
+            const prompt = `You are Quiz Master AI, a helpful and friendly educational assistant. The user wants to chat or ask questions (not create a quiz).
+
+User message: ${userInput}
+
+Respond helpfully and conversationally. You can:
+- Answer questions on any topic
+- Provide explanations and help with homework
+- Discuss concepts and ideas
+- Give study tips and advice
+- Have friendly conversations
+
+Be educational, supportive, and engaging. Use emojis appropriately to make the conversation friendly.`;
+
+            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiApiKey}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    contents: [{
+                        parts: [{
+                            text: prompt
+                        }]
+                    }]
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error(`Chat failed: ${response.status}`);
+            }
+
+            const data = await response.json();
+            
+            if (!data.candidates || !data.candidates[0] || !data.candidates[0].content) {
+                throw new Error('Invalid response from Quiz Master AI');
+            }
+
+            const aiResponse = data.candidates[0].content.parts[0].text;
+
+            document.getElementById('typing-indicator').style.display = 'none';
+            document.getElementById('send-btn').disabled = false;
+
+            addMessage(aiResponse, 'ai');
+        }
+
+        async function showHelp() {
+            document.getElementById('typing-indicator').style.display = 'none';
+            document.getElementById('send-btn').disabled = false;
+            addMessage(`🤖 <strong>Quiz Master AI Commands:</strong><br><br>
+                • <strong>/q</strong> - Create instant quiz (no download needed)<br>
+                • <strong>/qjson</strong> - Create quiz with JSON download<br>
+                • <strong>/ai</strong> - Chat mode for questions and help<br><br>
+                <strong>Type a command to get started!</strong> 😊`, 'ai');
+        }
+
+        async function processQuestionsWithAI(userInput) {
+            const prompt = `You are Quiz Master AI, an expert quiz generator. Convert the following questions into a JSON format.
+
+IMPORTANT: Return ONLY valid JSON, no other text or explanation.
+
+Required JSON format:
+{
+  "questions": [
+    {
+      "question": "Question text here",
+      "options": ["Option 1", "Option 2", "Option 3", "Option 4"],
+      "correct": 0,
+      "explanation": "Optional explanation"
+    }
+  ]
+}
+
+Rules:
+1. Extract all questions from the input
+2. Create exactly 4 options for each question (add reasonable wrong answers if needed)
+3. Use index 0-3 for correct answer (0=first option, 1=second option, etc.)
+4. Clean up question text (remove numbers, formatting, etc.)
+5. Make options concise but clear
+6. Add explanations when helpful
+7. Handle any format: numbered questions, lettered options, ANS: format, etc.
+8. For technical/academic questions, ensure wrong answers are plausible but clearly incorrect
+
+Input text to convert:
+${userInput}`;
+
+            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiApiKey}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    contents: [{
+                        parts: [{
+                            text: prompt
+                        }]
+                    }]
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error(`Processing failed: ${response.status}`);
+            }
+
+            const data = await response.json();
+            
+            if (!data.candidates || !data.candidates[0] || !data.candidates[0].content) {
+                throw new Error('Invalid response from Quiz Master AI');
+            }
+
+            const generatedText = data.candidates[0].content.parts[0].text;
+            const jsonMatch = generatedText.match(/\{[\s\S]*\}/);
+            if (!jsonMatch) {
+                throw new Error('No valid JSON found in response');
+            }
+
+            try {
+                generatedJSON = JSON.parse(jsonMatch[0]);
+                
+                if (!generatedJSON.questions || !Array.isArray(generatedJSON.questions)) {
+                    throw new Error('Invalid JSON format - missing questions array');
+                }
+
+                document.getElementById('typing-indicator').style.display = 'none';
+                document.getElementById('send-btn').disabled = false;
+
+                addMessage(`🎉 Perfect! Quiz Master AI successfully processed ${generatedJSON.questions.length} questions! Your quiz file is ready for download.`, 'ai');
+                
+                document.getElementById('download-btn').style.display = 'block';
+
+            } catch (parseError) {
+                throw new Error(`Failed to parse quiz data: ${parseError.message}`);
+            }
+        }
+
+        function addMessage(message, type) {
+            const chatContainer = document.getElementById('chat-container');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${type}-message`;
+            messageDiv.innerHTML = message.replace(/\n/g, '<br>');
+            chatContainer.appendChild(messageDiv);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+
+        function downloadJSON() {
+            if (!generatedJSON) {
+                alert('No JSON data to download!');
+                return;
+            }
+
+            const jsonString = JSON.stringify(generatedJSON, null, 2);
+            const blob = new Blob([jsonString], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'quiz.json';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+
+            addMessage('📥 File downloaded successfully! You can now close this window and upload the JSON file to start your quiz.', 'ai');
+        }
+
+        document.getElementById('ai-popup').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeAIHelper();
+            }
+        });
+
+        document.getElementById('chat-input').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
+    </script>
+</body>
+</html>
