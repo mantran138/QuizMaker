@@ -27,7 +27,7 @@
             background: rgba(255, 255, 255, 0.98);
             backdrop-filter: blur(10px);
             border-radius: 16px;
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+            box-shadow: 0 25px 50px -12p x rgba(0, 0, 0, 0.25);
             padding: 30px;
             max-width: 900px;
             width: 100%;
@@ -258,7 +258,7 @@
                             <input type="file" id="host-file-input" class="hidden" accept=".json" onchange="document.getElementById('host-file-status').textContent=this.files[0].name">
                             <p id="host-file-status" class="text-sm text-gray-500 mt-2">No file selected.</p>
                         </div>
-                        <button class="primary-btn w-full py-3 text-white rounded-xl font-semibold" onclick="hostRoom()">Create Room</button>
+                        <button id="create-room-btn" class="primary-btn w-full py-3 text-white rounded-xl font-semibold">Create Room</button>
                         <p id="host-error" class="error-message mt-3 text-center"></p>
                     </div>
 
@@ -334,9 +334,34 @@
         
         setLogLevel('Debug');
         
+        // --- LOCAL DEVELOPMENT FIREBASE CONFIGURATION ---
+        /* * The Canvas environment injects firebase configuration via __firebase_config.
+         * If running this file LOCALLY (e.g., from GitHub Pages), you MUST replace 
+         * the placeholder values below with your actual Firebase project config 
+         * obtained from your Firebase console.
+         * * --------------------------------------------------------------------
+         * FIX: REPLACE ALL VALUES BELOW WITH YOUR PROJECT'S CONFIG JSON!
+         * --------------------------------------------------------------------
+         */
+        const LOCAL_FIREBASE_CONFIG = {
+            apiKey: "AIzaSyASVOy90MT3iB2ZjLrPU7dI0lVE0Gm9-AE",
+            authDomain: "quizmaker-f4502.firebaseapp.com",
+            projectId: "quizmaker-f4502",
+            storageBucket: "quizmaker-f4502.firebasestorage.app",
+            messagingSenderId: "474282135859",
+            appId: "1:474282135859:web:9372753a0a99d01b7a6e46",
+            measurementId: "G-56K0EMVFMD"
+        };
+        // ------------------------------------------------------------------
+
         // Global variables provided by the Canvas environment
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-quiz-app-id';
-        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+        
+        // Use the injected config if available, otherwise use the local fallback (which requires user to fill it out)
+        const firebaseConfig = typeof __firebase_config !== 'undefined' 
+                               ? JSON.parse(__firebase_config) 
+                               : LOCAL_FIREBASE_CONFIG;
+                               
         const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
 
         let app;
@@ -353,11 +378,19 @@
         let currentQuiz = null; // The quiz data for the room
 
         // Paths
-        const ROOMS_COLLECTION = `artifacts/${appId}/public/data/quizRooms`;
+        const ROOMS_COLLECTION = 'quizRooms'; // Simplified path for direct collection access
 
         // --- AUTHENTICATION INIT ---
         async function initializeFirebase() {
             try {
+                // Check if running locally and config is missing critical info (only run this check if firebaseConfig is empty)
+                if (Object.keys(firebaseConfig).length === 0) {
+                    document.getElementById('auth-status').textContent = '⚠️ Local Setup Error: Add your Firebase Config!';
+                    console.error("Firebase Configuration Error: You are likely running this locally without providing your project's apiKey and projectId. Please update LOCAL_FIREBASE_CONFIG.");
+                    return; // Prevent initialization with invalid config
+                }
+
+                // Initialize Firebase using the environment config or the local fallback
                 app = initializeApp(firebaseConfig);
                 db = getFirestore(app);
                 auth = getAuth(app);
@@ -389,6 +422,12 @@
         
         // Start Firebase initialization
         initializeFirebase();
+
+        // Add event listener for create room button
+        document.getElementById('create-room-btn')?.addEventListener('click', () => {
+            console.log('Create Room button clicked'); // Debug log
+            hostRoom();
+        });
         
         // --- CORE UI/MODE HANDLING ---
         function setMode(mode) {
@@ -406,35 +445,52 @@
             }
         }
         
-        // Expose setMode globally so it can be called from inline onclick attributes in the HTML body
+        // Expose functions globally so they can be called from inline onclick attributes
         window.setMode = setMode;
-
+        
         function generateRoomId() {
             return Math.random().toString(36).substring(2, 8).toUpperCase();
         }
 
         // --- MULTIPLAYER HOST LOGIC ---
         async function hostRoom() {
+            console.log('hostRoom function called');
             const name = document.getElementById('host-name').value.trim();
             const file = document.getElementById('host-file-input').files[0];
             const errorElement = document.getElementById('host-error');
             errorElement.textContent = '';
+            
+            console.log('Name:', name);
+            console.log('File:', file);
+            console.log('UserId:', userId);
 
             if (!name || !file) {
+                console.log('Missing name or file');
                 errorElement.textContent = 'Please enter your name and upload a JSON quiz file.';
                 return;
             }
             if (file.type !== 'application/json') {
+                console.log('Invalid file type:', file.type);
                 errorElement.textContent = 'Please upload a valid JSON file.';
+                return;
+            }
+            if (!userId) {
+                console.log('No userId found');
+                errorElement.textContent = 'Please wait for authentication to complete.';
                 return;
             }
 
             // 1. Read the JSON file
+            console.log('Starting to read file');
             const reader = new FileReader();
             reader.onload = async function(e) {
+                console.log('File read completed');
                 try {
+                    console.log('File content:', e.target.result);
                     const quizJson = JSON.parse(e.target.result);
+                    console.log('Parsed JSON:', quizJson);
                     if (!quizJson.questions || !Array.isArray(quizJson.questions) || quizJson.questions.length === 0) {
+                        console.log('Invalid quiz format - missing questions array');
                         throw new Error('Invalid quiz format.');
                     }
                     
@@ -452,8 +508,11 @@
                     });
 
                     // 2. Create room
+                    console.log('Creating room');
                     const roomId = generateRoomId();
+                    console.log('Generated roomId:', roomId);
                     const roomRef = doc(db, ROOMS_COLLECTION, roomId);
+                    console.log('Room collection path:', ROOMS_COLLECTION);
 
                     const roomData = {
                         roomId: roomId,
@@ -464,18 +523,55 @@
                         currentQuestionIndex: 0,
                         createdAt: Date.now()
                     };
+                    console.log('Room data prepared:', roomData);
 
-                    await setDoc(roomRef, roomData);
-                    
-                    // 3. Join as host
-                    currentRoomId = roomId;
-                    isHost = true;
-                    userName = name;
-                    
-                    // 4. Add self to players subcollection
-                    await addPlayerToRoom(roomId, name, true);
-                    
-                    setupLobby(roomId);
+                    try {
+                        console.log('Attempting to create room document');
+                        await setDoc(roomRef, roomData);
+                        console.log('Room document created successfully');
+                        
+                        // 3. Join as host
+                        currentRoomId = roomId;
+                        isHost = true;
+                        userName = name;
+                        
+                        try {
+                            // 4. Add self to players subcollection
+                            console.log('Adding host to players collection');
+                            await addPlayerToRoom(roomId, name, true);
+                            console.log('Host added to players collection');
+                            
+                            console.log('Setting up lobby');
+                            setupLobby(roomId);
+                            console.log('Lobby setup completed');
+                        } catch (playerError) {
+                            console.error('Failed to add player:', playerError);
+                            // If adding player fails, try to clean up the room
+                            try {
+                                await deleteDoc(roomRef);
+                                console.log('Cleaned up room after player addition failed');
+                            } catch (cleanupError) {
+                                console.error('Failed to clean up room:', cleanupError);
+                            }
+                            throw playerError; // Re-throw to be caught by outer catch
+                        }
+                    } catch (error) {
+                        console.error('Firebase operation failed:', error);
+                        let errorMessage = error.message;
+                        // Check for specific Firebase errors
+                        if (error.code === 'permission-denied') {
+                            errorMessage = 'Permission denied. Please update Firebase security rules to allow access to both rooms and players collections.';
+                        } else if (error.code === 'unavailable') {
+                            errorMessage = 'Firebase service is currently unavailable. Please try again later.';
+                        }
+                        errorElement.textContent = 'Failed to create room: ' + errorMessage;
+                        // Add error details to console for debugging
+                        console.error('Detailed error:', {
+                            code: error.code,
+                            message: error.message,
+                            stack: error.stack
+                        });
+                    }
                     
                 } catch (error) {
                     console.error("Hosting Error:", error);
@@ -484,6 +580,7 @@
             };
             reader.readAsText(file);
         }
+        window.hostRoom = hostRoom; // EXPOSE TO GLOBAL SCOPE
 
         // --- MULTIPLAYER JOIN LOGIC ---
         async function joinRoom() {
@@ -494,6 +591,10 @@
 
             if (!name || !roomId) {
                 errorElement.textContent = 'Please enter your name and the room code.';
+                return;
+            }
+            if (!userId) {
+                errorElement.textContent = 'Please wait for authentication to complete.';
                 return;
             }
             
@@ -527,6 +628,7 @@
                 errorElement.textContent = 'An error occurred while joining the room.';
             }
         }
+        window.joinRoom = joinRoom; // EXPOSE TO GLOBAL SCOPE
         
         async function addPlayerToRoom(roomId, playerName, host) {
             const playerRef = doc(db, ROOMS_COLLECTION, roomId, 'players', userId);
@@ -622,6 +724,7 @@
             });
             // The onSnapshot listener will handle the UI transition for everyone
         }
+        window.startMultiplayerGame = startMultiplayerGame; // EXPOSE TO GLOBAL SCOPE
         
         function startGameView(roomData) {
             document.getElementById('multiplayer-lobby').style.display = 'none';
@@ -872,6 +975,7 @@
             document.getElementById('host-error').textContent = '';
             document.getElementById('joiner-error').textContent = '';
         }
+        window.leaveRoom = leaveRoom; // EXPOSE TO GLOBAL SCOPE
 
         // Catch window close/unload to clean up player data
         window.addEventListener('beforeunload', () => {
