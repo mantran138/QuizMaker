@@ -456,6 +456,7 @@
         let unsubscribePlayers = null;
         let unsubscribeChat = null;
         let currentQuiz = null; // The quiz data for the room
+        let currentMultiplayerQuestionIndex = -1; // Track which question we're currently showing
 
         // Paths
         const ROOMS_COLLECTION = 'quizRooms'; // Simplified path for direct collection access
@@ -724,6 +725,65 @@
             await setDoc(playerRef, playerDoc);
         }
 
+        // Countdown sequence function (called by host)
+        async function startCountdownSequence(roomId, questionIndex) {
+            console.log('Starting countdown sequence...');
+            const roomRef = doc(db, ROOMS_COLLECTION, roomId);
+            
+            let countdown = 5;
+            
+            const countdownInterval = setInterval(async () => {
+                console.log('Countdown:', countdown);
+                
+                if (countdown > 0) {
+                    // Update countdown value in Firebase so all players see it
+                    try {
+                        await updateDoc(roomRef, {
+                            showCountdown: true,
+                            countdownValue: countdown
+                        });
+                    } catch (e) {
+                        console.error('Error updating countdown:', e);
+                    }
+                }
+                
+                countdown--;
+                
+                if (countdown < 0) {
+                    clearInterval(countdownInterval);
+                    
+                    // Advance to next question
+                    const nextIndex = questionIndex + 1;
+                    if (nextIndex < currentQuiz.questions.length) {
+                        console.log('Moving to question', nextIndex);
+                        try {
+                            await updateDoc(roomRef, {
+                                currentQuestionIndex: nextIndex,
+                                questionStartTime: Date.now(),
+                                playersAnswered: [],
+                                showCountdown: false,
+                                countdownValue: null
+                            });
+                            console.log('Successfully updated room to question', nextIndex);
+                        } catch (e) {
+                            console.error('Error advancing question:', e);
+                        }
+                    } else {
+                        console.log('Finishing game');
+                        try {
+                            await updateDoc(roomRef, {
+                                state: 'finished',
+                                showCountdown: false,
+                                countdownValue: null
+                            });
+                        } catch (e) {
+                            console.error('Error finishing game:', e);
+                        }
+                    }
+                }
+            }, 1000);
+        }
+
         // --- LOBBY/GAME STATE LISTENERS ---
         function setupLobby(roomId) {
             document.getElementById('multiplayer-mode').style.display = 'none';
@@ -760,8 +820,39 @@
 
                     // Handle state transitions for all states so clients update UI appropriately
                     if (roomData.state === 'playing') {
-                        // Game started, move to game view
-                        startGameView(roomData);
+                        // Check if we need to show the game view or update the question
+                        const gameView = document.getElementById('multiplayer-game');
+                        if (gameView.style.display === 'none' || gameView.style.display === '') {
+                            // Game just started, show game view
+                            currentMultiplayerQuestionIndex = roomData.currentQuestionIndex;
+                            startGameView(roomData);
+                        } else if (currentMultiplayerQuestionIndex !== roomData.currentQuestionIndex) {
+                            // Question changed, update to new question
+                            currentMultiplayerQuestionIndex = roomData.currentQuestionIndex;
+                            showMultiplayerQuestion(roomData.currentQuestionIndex);
+                        }
+                        
+                        // Check if countdown should be displayed
+                        if (roomData.showCountdown && roomData.countdownValue !== undefined) {
+                            showCountdownToAll(roomData.countdownValue);
+                        }
+                        
+                        // HOST: Check if everyone answered and countdown hasn't started
+                        if (isHost && !roomData.showCountdown && roomData.playersAnswered && roomData.playersAnswered.length > 0) {
+                            // Get player count
+                            getDocs(collection(db, ROOMS_COLLECTION, currentRoomId, 'players')).then(playersSnap => {
+                                const totalPlayers = playersSnap.size;
+                                console.log('Host listener check:', {
+                                    playersAnswered: roomData.playersAnswered.length,
+                                    totalPlayers: totalPlayers
+                                });
+                                
+                                if (roomData.playersAnswered.length >= totalPlayers) {
+                                    console.log('Host detected all players answered via listener! Starting countdown...');
+                                    startCountdownSequence(currentRoomId, roomData.currentQuestionIndex);
+                                }
+                            });
+                        }
                     } else if (roomData.state === 'finished') {
                         // Show final results view
                         startGameView(roomData);
@@ -800,6 +891,33 @@
                 updateLobbyPlayers(players);
                 updateScoreboard(players);
             });
+        }
+        
+        // Show countdown to all players
+        function showCountdownToAll(countdownValue) {
+            const feedbackEl = document.getElementById('mp-feedback');
+            if (!feedbackEl) return;
+            
+            // Remove existing countdown if any
+            const existingCountdown = document.getElementById('countdown-timer');
+            if (existingCountdown) {
+                existingCountdown.remove();
+            }
+            
+            // Create new countdown element
+            if (countdownValue > 0) {
+                const countdownEl = document.createElement('div');
+                countdownEl.id = 'countdown-timer';
+                countdownEl.className = 'mt-3 text-center text-xl font-bold text-indigo-600 bg-indigo-50 p-3 rounded-lg';
+                countdownEl.textContent = `⏱️ Next question in ${countdownValue} seconds...`;
+                feedbackEl.appendChild(countdownEl);
+            } else if (countdownValue === 0) {
+                const countdownEl = document.createElement('div');
+                countdownEl.id = 'countdown-timer';
+                countdownEl.className = 'mt-3 text-center text-xl font-bold text-indigo-600 bg-indigo-50 p-3 rounded-lg';
+                countdownEl.textContent = `⏱️ Loading next question...`;
+                feedbackEl.appendChild(countdownEl);
+            }
         }
         
         function updateLobbyPlayers(players) {
@@ -973,10 +1091,10 @@
                 showMultiplayerResults();
             }
 
-            // Host specific controls
+            // Show host advance button
             if (isHost) {
                 document.getElementById('mp-next-btn').style.display = 'block';
-                document.getElementById('mp-next-btn').textContent = 'Advance to Question 1';
+                document.getElementById('mp-next-btn').textContent = 'Skip / Next Question';
                 document.getElementById('mp-next-btn').onclick = () => advanceQuestion();
             } else {
                 document.getElementById('mp-next-btn').style.display = 'none';
@@ -1010,12 +1128,27 @@
                 answersContainer.appendChild(button);
             });
             
-            if (isHost) {
-                document.getElementById('mp-next-btn').textContent = index === totalQuestions - 1 ? 'End Game' : `Advance to Question ${index + 2}`;
+            // Force scoreboard refresh to show everyone as "answering" (not done yet)
+            if (currentRoomId) {
+                getDocs(collection(db, ROOMS_COLLECTION, currentRoomId, 'players')).then(playersSnap => {
+                    const players = [];
+                    playersSnap.forEach(doc => players.push(doc.data()));
+                    updateScoreboard(players);
+                });
             }
         }
 
         async function handleMultiplayerAnswer(questionIndex, selectedIndex, buttonElement) {
+            // Prevent double-clicking by checking if already answered
+            const playerRef = doc(db, ROOMS_COLLECTION, currentRoomId, 'players', userId);
+            const playerSnap = await getDoc(playerRef);
+            const playerData = playerSnap.data();
+            
+            // If this player already answered this question, ignore
+            if (playerData.currentQuestionIndex > questionIndex) {
+                return;
+            }
+            
             // Disable all buttons immediately
             document.querySelectorAll('#mp-answers-container .answer-btn').forEach(btn => {
                 btn.classList.add('disabled', 'cursor-not-allowed');
@@ -1024,7 +1157,6 @@
             
             const question = currentQuiz.questions[questionIndex];
             const isCorrect = (selectedIndex === question.correct);
-            const playerRef = doc(db, ROOMS_COLLECTION, currentRoomId, 'players', userId);
             const roomRef = doc(db, ROOMS_COLLECTION, currentRoomId);
 
             // Update button UI
@@ -1041,95 +1173,80 @@
             const answerTime = Date.now();
             const timeTaken = answerTime - roomData.questionStartTime;
             
-            // Calculate speed bonus
+            // Calculate speed bonus (faster = more points)
             const speedBonus = Math.max(0, Math.floor(SCORING.SPEED_BONUS_MAX * (1 - timeTaken / SCORING.TIME_WINDOW)));
-
-            // Update room's playersAnswered array
-            await updateDoc(roomRef, {
-                playersAnswered: arrayUnion(userId)
-            });
 
             // Feedback
             document.getElementById('mp-feedback').className = `feedback p-3 mt-4 rounded-lg font-semibold ${isCorrect ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`;
             document.getElementById('mp-feedback').innerHTML = `
                 ${isCorrect ? '✅ Correct!' : '❌ Incorrect.'} 
+                ${isCorrect ? `<span class="text-sm">+${SCORING.BASE_POINTS + speedBonus} points (${speedBonus} speed bonus)</span>` : ''}
                 <span class="font-normal block mt-1">${question.explanation || ''}</span>
             `;
             document.getElementById('mp-feedback').style.display = 'block';
 
 
-            // 1. Transactional Update for Score and Killstreak
+            // 1. Transactional Update for Score, Killstreak, and playersAnswered
             try {
                 await runTransaction(db, async (transaction) => {
-                    const playerSnap = await transaction.get(playerRef);
-                    if (!playerSnap.exists()) return;
+                    const roomDoc = await transaction.get(roomRef);
+                    const playerDoc = await transaction.get(playerRef);
                     
-                    const playerData = playerSnap.data();
-                    let newScore = playerData.score;
-                    let newKillstreak = playerData.killstreak;
-                    let pointChange = 0;
-                    
-                    if (isCorrect) {
-                        newKillstreak++;
-                        
-                        // Base points
-                        pointChange = SCORING.BASE_POINTS;
-                        
-                        // Speed bonus
-                        pointChange += speedBonus;
-                        
-                        // Killstreak bonus
-                        if (newKillstreak >= 2) {
-                            const streakBonus = Math.floor(pointChange * (newKillstreak * SCORING.STREAK_MULTIPLIER));
-                            pointChange += streakBonus;
-                        }
-                        
-                        newScore += pointChange;
-                        
-                        // Update feedback to show points
-                        document.getElementById('mp-feedback').innerHTML += `
-                            <p class="mt-2 text-sm">
-                                🔥 +${pointChange} Points!
-                                ${speedBonus > 0 ? `(Speed Bonus: +${speedBonus})` : ''}
-                                (Killstreak: ${newKillstreak}x)
-                            </p>`;
-
-                    } else {
-                        newKillstreak = 0; // Reset killstreak on wrong answer
-                        document.getElementById('mp-feedback').innerHTML += `
-                            <p class="mt-2 text-sm">💥 Killstreak broken.</p>`;
+                    if (!roomDoc.exists() || !playerDoc.exists()) {
+                        throw new Error("Document does not exist!");
                     }
                     
+                    const currentRoomData = roomDoc.data();
+                    const currentPlayerData = playerDoc.data();
+                    
+                    // Prevent duplicate answers in transaction
+                    if (currentRoomData.playersAnswered.includes(userId)) {
+                        return; // Already answered, skip
+                    }
+                    
+                    let newScore = currentPlayerData.score;
+                    let newKillstreak = currentPlayerData.killstreak;
+                    
+                    if (isCorrect) {
+                        // Award base points
+                        newScore += SCORING.BASE_POINTS;
+                        
+                        // Award speed bonus
+                        newScore += speedBonus;
+                        
+                        // Increase killstreak
+                        newKillstreak += 1;
+                        
+                        // Award streak bonus
+                        if (newKillstreak >= 2) {
+                            const streakBonus = Math.floor(SCORING.BASE_POINTS * SCORING.STREAK_MULTIPLIER * newKillstreak);
+                            newScore += streakBonus;
+                        }
+                    } else {
+                        // Reset killstreak on wrong answer
+                        newKillstreak = 0;
+                    }
+                    
+                    // Update player document
                     transaction.update(playerRef, {
                         score: newScore,
                         killstreak: newKillstreak,
                         currentQuestionIndex: questionIndex + 1,
                         lastAnswerTime: answerTime
                     });
+                    
+                    // Add player to playersAnswered array
+                    transaction.update(roomRef, {
+                        playersAnswered: arrayUnion(userId)
+                    });
                 });
 
-                // Check if all players have answered
-                const roomSnapshot = await getDoc(roomRef);
-                const roomData = roomSnapshot.data();
-                const playersSnap = await getDocs(collection(db, ROOMS_COLLECTION, currentRoomId, 'players'));
-                const totalPlayers = playersSnap.size;
-                
-                if (roomData.playersAnswered.length >= totalPlayers) {
-                    // All players have answered, auto-advance to next question
-                    if (questionIndex < currentQuiz.questions.length - 1) {
-                        // Move to next question
-                        await updateDoc(roomRef, {
-                            currentQuestionIndex: questionIndex + 1,
-                            questionStartTime: Date.now(),
-                            playersAnswered: []
-                        });
-                    } else {
-                        // End the game
-                        await updateDoc(roomRef, {
-                            state: 'finished'
-                        });
-                    }
-                }
+                // Wait longer for transaction to fully commit and propagate
+                await new Promise(resolve => setTimeout(resolve, 300));
+
+                // After answering, the room snapshot listener will detect when all players have answered
+                // and trigger the countdown (for host only)
+                console.log('Answer submitted, waiting for room listener to detect completion...');
                 
             } catch (e) {
                 console.error("Transaction failed: ", e);
@@ -1141,13 +1258,16 @@
             if (!isHost || !currentRoomId) return;
 
             const roomRef = doc(db, ROOMS_COLLECTION, currentRoomId);
-            const nextIndex = currentQuiz.questions.indexOf(currentQuiz.questions.find(q => q.question === document.getElementById('mp-question-text').textContent)) + 1;
+            const roomSnap = await getDoc(roomRef);
+            const roomData = roomSnap.data();
+            const nextIndex = roomData.currentQuestionIndex + 1;
 
             if (nextIndex < currentQuiz.questions.length) {
                 await updateDoc(roomRef, {
-                    currentQuestionIndex: nextIndex
+                    currentQuestionIndex: nextIndex,
+                    questionStartTime: Date.now(),
+                    playersAnswered: []
                 });
-                showMultiplayerQuestion(nextIndex);
             } else {
                 finishMultiplayerGame();
             }
@@ -1385,7 +1505,7 @@
 
 
         // --- REAL-TIME SCOREBOARD UPDATE ---
-        function updateScoreboard(players) {
+        async function updateScoreboard(players) {
             const scoreboard = document.getElementById('game-scoreboard');
             if (!scoreboard) return; // Only run if the game scoreboard is visible
 
@@ -1398,13 +1518,32 @@
                 return a.lastAnswerTime - b.lastAnswerTime; // Fastest to answer wins tie
             });
             
+            // Get current room state to check who has answered
+            let playersAnswered = [];
+            if (currentRoomId) {
+                try {
+                    const roomSnap = await getDoc(doc(db, ROOMS_COLLECTION, currentRoomId));
+                    if (roomSnap.exists()) {
+                        playersAnswered = roomSnap.data().playersAnswered || [];
+                    }
+                } catch (e) {
+                    console.error("Error getting room data:", e);
+                }
+            }
+            
             players.forEach((p, index) => {
                 const isCurrentPlayer = p.id === userId;
                 const isHostPlayer = p.isHost;
+                const hasAnswered = playersAnswered.includes(p.id);
                 
                 const rankIcon = index === 0 ? '🥇' : (index === 1 ? '🥈' : (index === 2 ? '🥉' : ''));
                 const killstreakBadge = p.killstreak >= 2 ? 
                     `<span class="killstreak-badge text-sm font-extrabold text-red-600 ml-2 bg-red-100 px-2 rounded-full">${p.killstreak}x 🔥</span>` : '';
+                
+                // Status indicator - show "answering" if not answered yet
+                const statusIndicator = hasAnswered 
+                    ? '<span class="text-xs font-bold text-green-700 bg-green-200 px-2 py-0.5 rounded-full ml-2">✓</span>'
+                    : '<span class="text-xs font-bold text-yellow-700 bg-yellow-200 px-2 py-0.5 rounded-full ml-2 animate-pulse">...</span>';
                 
                 const playerRow = document.createElement('div');
                 playerRow.className = `p-3 flex justify-between items-center rounded-lg ${isCurrentPlayer ? 'bg-indigo-100 border-2 border-indigo-500' : (isHostPlayer ? 'bg-gray-50' : 'bg-white')}`;
@@ -1413,7 +1552,7 @@
                     <div class="flex items-center space-x-2">
                         <span class="font-bold text-lg w-5 text-center">${rankIcon || (index + 1)}</span>
                         <div class="truncate">
-                            <span class="font-semibold text-gray-800 truncate">${p.name} ${isCurrentPlayer ? '(You)' : ''}</span>
+                            <span class="font-semibold text-gray-800 truncate">${p.name} ${isCurrentPlayer ? '(You)' : ''} ${statusIndicator}</span>
                             <div class="text-xs text-gray-500 flex items-center space-x-1">
                                 <span>Q: ${p.currentQuestionIndex}</span> 
                                 ${killstreakBadge}
@@ -1458,6 +1597,7 @@
             currentRoomId = null;
             isHost = false;
             currentQuiz = null;
+            currentMultiplayerQuestionIndex = -1;
             userName = '';
             
             // Clear chat UI
