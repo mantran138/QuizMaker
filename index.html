@@ -4,10 +4,305 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Quiz Master - We've Moved!</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="../assets/css/styles.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        /* CSS Custom Properties */
+        :root {
+            --bg-deep: #0a0a1a;
+            --bg-surface: rgba(15, 15, 35, 0.8);
+            --glass-bg: rgba(255, 255, 255, 0.05);
+            --glass-border: rgba(255, 255, 255, 0.1);
+            --glass-highlight: rgba(255, 255, 255, 0.15);
+            
+            --neon-cyan: #00f5ff;
+            --neon-magenta: #ff00e5;
+            --neon-purple: #a855f7;
+            --neon-blue: #3b82f6;
+            
+            --accent-gradient: linear-gradient(135deg, var(--neon-cyan), var(--neon-magenta));
+            --glow-cyan: 0 0 20px rgba(0, 245, 255, 0.5), 0 0 40px rgba(0, 245, 255, 0.2);
+            
+            --text-primary: #ffffff;
+            --text-secondary: rgba(255, 255, 255, 0.7);
+            --text-muted: rgba(255, 255, 255, 0.4);
+            
+            --font-body: 'Inter', sans-serif;
+            
+            --transition-normal: 0.3s ease;
+        }
+
+        /* Reset & Base */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: var(--font-body);
+            background: var(--bg-deep);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            overflow-x: hidden;
+            color: var(--text-primary);
+        }
+
+        /* Animated Background */
+        .bg-animation {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            overflow: hidden;
+            background: 
+                radial-gradient(ellipse at 20% 20%, rgba(0, 245, 255, 0.15) 0%, transparent 50%),
+                radial-gradient(ellipse at 80% 80%, rgba(255, 0, 229, 0.15) 0%, transparent 50%),
+                radial-gradient(ellipse at 50% 50%, rgba(168, 85, 247, 0.1) 0%, transparent 70%),
+                var(--bg-deep);
+        }
+
+        /* Floating Orbs */
+        .orb {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(60px);
+            opacity: 0.6;
+            animation: float 20s ease-in-out infinite;
+        }
+
+        .orb-1 {
+            width: 400px;
+            height: 400px;
+            background: var(--neon-cyan);
+            top: -100px;
+            left: -100px;
+            animation-delay: 0s;
+        }
+
+        .orb-2 {
+            width: 300px;
+            height: 300px;
+            background: var(--neon-magenta);
+            bottom: -50px;
+            right: -50px;
+            animation-delay: -7s;
+        }
+
+        .orb-3 {
+            width: 200px;
+            height: 200px;
+            background: var(--neon-purple);
+            top: 50%;
+            left: 50%;
+            animation-delay: -14s;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translate(0, 0) scale(1); }
+            25% { transform: translate(30px, -30px) scale(1.1); }
+            50% { transform: translate(-20px, 20px) scale(0.9); }
+            75% { transform: translate(20px, 10px) scale(1.05); }
+        }
+
+        /* Grid Pattern Overlay */
+        .grid-pattern {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            background-image: 
+                linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+            background-size: 50px 50px;
+            animation: gridMove 30s linear infinite;
+        }
+
+        @keyframes gridMove {
+            0% { transform: translateY(0); }
+            100% { transform: translateY(50px); }
+        }
+
+        /* Main Container */
+        .container {
+            background: var(--glass-bg);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            border-radius: 24px;
+            box-shadow: 
+                0 25px 50px -12px rgba(0, 0, 0, 0.5),
+                inset 0 1px 0 0 var(--glass-highlight);
+            padding: 40px;
+            max-width: 600px;
+            width: 100%;
+            position: relative;
+            text-align: center;
+            animation: fadeInUp 0.6s ease-out;
+        }
+
+        .container::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, var(--neon-cyan), var(--neon-magenta), transparent);
+            opacity: 0.5;
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Typography */
+        .title-gradient {
+            font-weight: 700;
+            background: var(--accent-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            text-shadow: 0 0 30px rgba(0, 245, 255, 0.3);
+        }
+
+        .header {
+            margin-bottom: 30px;
+        }
+
+        .header .icon {
+            font-size: 4rem;
+            margin-bottom: 16px;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 8px;
+        }
+
+        .subtitle {
+            color: var(--text-secondary);
+            font-size: 1.1rem;
+        }
+
+        /* Glass Panel */
+        .glass-panel {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
+            padding: 32px;
+            margin-bottom: 24px;
+        }
+
+        .glass-panel .panel-icon {
+            font-size: 3.5rem;
+            margin-bottom: 20px;
+        }
+
+        .glass-panel h2 {
+            color: var(--text-primary);
+            font-size: 1.4rem;
+            font-weight: 600;
+            margin-bottom: 16px;
+        }
+
+        .glass-panel p {
+            color: var(--text-secondary);
+            font-size: 1rem;
+            line-height: 1.6;
+            margin-bottom: 20px;
+        }
+
+        /* Domain Box */
+        .domain-box {
+            background: rgba(99, 102, 241, 0.1);
+            border: 1px solid rgba(99, 102, 241, 0.3);
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 24px;
+        }
+
+        .domain-box .label {
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            margin-bottom: 4px;
+        }
+
+        .domain-box .url {
+            font-size: 1.2rem;
+            font-weight: 700;
+        }
+
+        /* Primary Button */
+        .primary-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: var(--accent-gradient);
+            color: white;
+            border: none;
+            padding: 16px 32px;
+            border-radius: 16px;
+            font-family: var(--font-body);
+            font-weight: 600;
+            font-size: 1.1rem;
+            cursor: pointer;
+            text-decoration: none;
+            position: relative;
+            overflow: hidden;
+            transition: all var(--transition-normal);
+            box-shadow: 
+                0 4px 15px rgba(0, 245, 255, 0.3),
+                0 0 0 0 rgba(0, 245, 255, 0);
+        }
+
+        .primary-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+            transition: left 0.5s ease;
+        }
+
+        .primary-btn:hover {
+            transform: translateY(-3px) scale(1.02);
+            box-shadow: 
+                0 8px 25px rgba(0, 245, 255, 0.4),
+                0 0 30px rgba(0, 245, 255, 0.3);
+        }
+
+        .primary-btn:hover::before {
+            left: 100%;
+        }
+
+        .primary-btn:active {
+            transform: translateY(-1px) scale(0.98);
+        }
+
+        /* Footer */
+        .footer {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+        }
+    </style>
 </head>
 <body>
     <!-- Animated Background -->
@@ -18,41 +313,34 @@
     </div>
     <div class="grid-pattern"></div>
 
-    <div class="container text-center">
-        <!-- Header with Logo -->
-        <div class="header mb-10">
-            <div class="mb-4">
-                <span class="text-6xl">🚀</span>
-            </div>
-            <h1 class="text-5xl font-extrabold mb-4 title-gradient">We've Moved!</h1>
-            <p class="subtitle text-lg">Quiz Master has a new home</p>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <div class="icon">🚀</div>
+            <h1 class="title-gradient">We've Moved!</h1>
+            <p class="subtitle">Quiz Master has a new home</p>
         </div>
 
         <!-- Announcement Card -->
-        <div class="glass-panel p-8 rounded-2xl mb-8" style="background: var(--glass-bg); border: 1px solid var(--glass-border);">
-            <div class="text-6xl mb-6">📦</div>
-            <h2 class="text-2xl font-bold mb-4" style="color: var(--text-primary);">
-                Quiz Master has relocated to a new domain!
-            </h2>
-            <p class="text-lg mb-6" style="color: var(--text-secondary);">
-                We've upgraded our platform to serve you better. Please update your bookmarks and head over to our new location.
-            </p>
-            <div class="p-4 rounded-xl mb-6" style="background: rgba(99, 102, 241, 0.1); border: 1px solid rgba(99, 102, 241, 0.3);">
-                <p class="text-sm" style="color: var(--text-muted);">New Address:</p>
-                <p class="text-xl font-bold title-gradient">mantran138.github.io/QuizMaster</p>
+        <div class="glass-panel">
+            <div class="panel-icon">📦</div>
+            <h2>Quiz Master has relocated to a new domain!</h2>
+            <p>We've upgraded our platform to serve you better. Please update your bookmarks and head over to our new location.</p>
+            
+            <div class="domain-box">
+                <p class="label">New Address:</p>
+                <p class="url title-gradient">mantran138.github.io/QuizMaster</p>
             </div>
             
-            <a href="https://mantran138.github.io/QuizMaster/" class="primary-btn px-8 py-4 rounded-full font-semibold inline-flex items-center gap-2 text-lg" style="text-decoration: none;">
+            <a href="https://mantran138.github.io/QuizMaster/" class="primary-btn">
                 <span>Visit New Site</span>
                 <span>→</span>
             </a>
         </div>
 
-        <!-- Footer Note -->
-        <div class="text-center">
-            <p class="text-sm" style="color: var(--text-muted);">
-                Thank you for being part of the Quiz Master community! 🎉
-            </p>
+        <!-- Footer -->
+        <div class="footer">
+            <p>Thank you for being part of the Quiz Master community! 🎉</p>
         </div>
     </div>
 </body>
